@@ -17,25 +17,28 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Автоматически принимаем лицензии предустановленного Android SDK
       - name: Accept Android SDK Licenses
         run: yes | sdkmanager --licenses || true
 
-      # Скачиваем официальный APK и распаковываем Haskell core
+      # Скачиваем официальный APK через авторизованную утилиту GitHub CLI
       - name: Extract prebuilt Haskell core from official APK
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/apk_extract
           cd /tmp/apk_extract
           
-          APK_URL=$(curl -s https://api.github.com/repos/simplex-chat/simplex-chat/releases/latest \
-            | grep -o 'https://[^" ]*simplex-chat-[^" ]*\.apk' \
-            | head -n 1)
+          # Скачиваем APK из последнего официального релиза SimpleX
+          gh release download --repo simplex-chat/simplex-chat --pattern "*.apk" --clobber
           
-          echo "Downloading APK from: $APK_URL"
-          curl -L "$APK_URL" -o official.apk
+          # Выбираем первый скачанный APK-файл
+          APK_FILE=$(ls *.apk | head -n 1)
+          echo "Используем APK: $APK_FILE"
           
-          unzip -q official.apk "lib/*"
+          # Распаковываем скомпилированные .so библиотеки ядра
+          unzip -q "$APK_FILE" "lib/*"
           
+          # Копируем библиотеки в проект
           mkdir -p $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs
           cp -r lib/* $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs/
           
