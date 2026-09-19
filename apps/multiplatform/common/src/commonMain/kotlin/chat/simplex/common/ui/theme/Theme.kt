@@ -1,5 +1,5 @@
 package chat.simplex.common.ui.theme
-
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.*
 import androidx.compose.runtime.*
@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 import chat.simplex.res.MR
 import kotlinx.serialization.Transient
 import java.util.UUID
-var monetModifier: ((AppColors, Boolean) -> Unit)? = null
+var getMonetColors: ((Boolean) -> List<Color>)? = null
 // Spec: spec/services/theme.md#DefaultTheme
 enum class DefaultTheme {
   LIGHT, DARK, SIMPLEX, BLACK;
@@ -831,11 +831,19 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     content = {
       val density = Density(LocalDensity.current.density * desktopDensityScaleMultiplier, LocalDensity.current.fontScale * fontSizeMultiplier)
       val rememberedAppColors = remember {
-  theme.appColors.copy()
-}.apply { 
-  updateColorsFrom(theme.appColors)
-  monetModifier?.invoke(this, systemDark.value)
-}
+        theme.appColors.copy()
+      }.apply { 
+        updateColorsFrom(theme.appColors)
+        getMonetColors?.invoke(systemDark.value)?.let { list ->
+          if (list.size >= 5) {
+            sentMessage = list[0]
+            sentQuote = list[1]
+            receivedMessage = list[2]
+            receivedQuote = list[3]
+            primaryVariant2 = list[4]
+          }
+        }
+      }
       val rememberedWallpaper = remember {
         // Explicitly creating a new object here so we don't mutate the initial [wallpaper]
         // provided, and overwrite the values set in it.
