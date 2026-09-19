@@ -22,7 +22,22 @@ import kotlinx.serialization.Serializable
 import chat.simplex.res.MR
 import kotlinx.serialization.Transient
 import java.util.UUID
-var getMonetColors: ((Boolean) -> List<Color>)? = null
+data class MonetPalette(
+  val primary: Color,
+  val primaryVariant: Color,
+  val background: Color,
+  val surface: Color,
+  val onPrimary: Color,
+  val onBackground: Color,
+  val onSurface: Color,
+  val sentMessage: Color,
+  val sentQuote: Color,
+  val receivedMessage: Color,
+  val receivedQuote: Color,
+  val primaryVariant2: Color
+)
+
+var getMonetPalette: ((Boolean) -> MonetPalette)? = null
 // Spec: spec/services/theme.md#DefaultTheme
 enum class DefaultTheme {
   LIGHT, DARK, SIMPLEX, BLACK;
@@ -861,18 +876,47 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable () -> Unit) {
+fun SimpleXThemeOverride(
+  theme: Theme,
+  // ...остальные параметры функции...
+) {
+  val monet = getMonetPalette?.invoke(systemDark.value)
+  val appMaterialColors = if (monet != null) {
+    theme.colors.copy(
+      primary = monet.primary,
+      primaryVariant = monet.primaryVariant,
+      background = monet.background,
+      surface = monet.surface,
+      onPrimary = monet.onPrimary,
+      onBackground = monet.onBackground,
+      onSurface = monet.onSurface
+    )
+  } else {
+    theme.colors
+  }
+
   MaterialTheme(
-    colors = theme.colors,
+    colors = appMaterialColors,
     typography = Typography,
     shapes = Shapes,
     content = {
+      val density = Density(LocalDensity.current.density, fontScale = 1f)
+
       val rememberedAppColors = remember {
-        // Explicitly creating a new object here so we don't mutate the initial [appColors]
-        // provided, and overwrite the values set in it.
         theme.appColors.copy()
-      }.apply { updateColorsFrom(theme.appColors) }
+      }.apply {
+        updateColorsFrom(theme.appColors)
+        monet?.let { m ->
+          sentMessage = m.sentMessage
+          sentQuote = m.sentQuote
+          receivedMessage = m.receivedMessage
+          receivedQuote = m.receivedQuote
+          primaryVariant2 = m.primaryVariant2
+        }
+      }
+
       val rememberedWallpaper = remember {
+      // ...дальше идет остальной оригинальный код...
         // Explicitly creating a new object here so we don't mutate the initial [wallpaper]
         // provided, and overwrite the values set in it.
         theme.wallpaper.copy()
