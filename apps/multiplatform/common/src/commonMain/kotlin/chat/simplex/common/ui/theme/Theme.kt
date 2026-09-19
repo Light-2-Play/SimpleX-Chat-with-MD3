@@ -839,8 +839,25 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
         ThemeManager.applyTheme(appPrefs.currentTheme.get()!!)
       }
   }
+
+  // 1. ПОЛУЧАЕМ МОНЕТ И ПЕРЕКРАШИВАЕМ МАТЕРИАЛ-ЦВЕТА (ФОН, ШАПКИ, ТЕКСТ)
+  val monet = getMonetPalette?.invoke(systemDark.value)
+  val appMaterialColors = if (monet != null) {
+    theme.colors.copy(
+      primary = monet.primary,
+      primaryVariant = monet.primaryVariant,
+      background = monet.background,
+      surface = monet.surface,
+      onPrimary = monet.onPrimary,
+      onBackground = monet.onBackground,
+      onSurface = monet.onSurface
+    )
+  } else {
+    theme.colors
+  }
+
   MaterialTheme(
-    colors = theme.colors,
+    colors = appMaterialColors, // <-- 2. СЮДА ВСТАВЛЯЕМ appMaterialColors ВМЕСТО theme.colors
     typography = Typography,
     shapes = Shapes,
     content = {
@@ -849,14 +866,13 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
         theme.appColors.copy()
       }.apply { 
         updateColorsFrom(theme.appColors)
-        getMonetColors?.invoke(systemDark.value)?.let { list ->
-          if (list.size >= 5) {
-            sentMessage = list[0]
-            sentQuote = list[1]
-            receivedMessage = list[2]
-            receivedQuote = list[3]
-            primaryVariant2 = list[4]
-          }
+        // 3. А ЗДЕСЬ ПЕРЕКРАШИВАЕМ БАБЛЫ ЧАТА
+        monet?.let { m ->
+          sentMessage = m.sentMessage
+          sentQuote = m.sentQuote
+          receivedMessage = m.receivedMessage
+          receivedQuote = m.receivedQuote
+          primaryVariant2 = m.primaryVariant2
         }
       }
       val rememberedWallpaper = remember {
