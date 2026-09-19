@@ -876,11 +876,9 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun SimpleXThemeOverride(
-  theme: Theme,
-  // ...остальные параметры функции...
-) {
-  val monet = getMonetPalette?.invoke(systemDark.value)
+fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable () -> Unit) {
+  val monet = getMonetPalette?.invoke(!theme.colors.isLight)
+
   val appMaterialColors = if (monet != null) {
     theme.colors.copy(
       primary = monet.primary,
