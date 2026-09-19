@@ -1,7 +1,7 @@
 package chat.simplex.app
-import android.os.Build
+import chat.simplex.common.ui.theme.getMonetColors
 import androidx.compose.ui.graphics.Color
-import chat.simplex.common.ui.theme.monetModifier
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.os.*
