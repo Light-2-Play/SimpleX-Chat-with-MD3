@@ -1,5 +1,10 @@
 package chat.simplex.common.ui.theme
-
+var monetModifier: ((AppColors, Boolean) -> Unit)? = null
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -830,10 +835,11 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     content = {
       val density = Density(LocalDensity.current.density * desktopDensityScaleMultiplier, LocalDensity.current.fontScale * fontSizeMultiplier)
       val rememberedAppColors = remember {
-        // Explicitly creating a new object here so we don't mutate the initial [appColors]
-        // provided, and overwrite the values set in it.
-        theme.appColors.copy()
-      }.apply { updateColorsFrom(theme.appColors) }
+  theme.appColors.copy()
+}.apply { 
+  updateColorsFrom(theme.appColors)
+  monetModifier?.invoke(this, systemDark.value)
+}
       val rememberedWallpaper = remember {
         // Explicitly creating a new object here so we don't mutate the initial [wallpaper]
         // provided, and overwrite the values set in it.
