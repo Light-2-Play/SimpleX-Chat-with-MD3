@@ -29,29 +29,30 @@ class MainActivity: FragmentActivity() {
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    mainActivity = WeakReference(this) // НАШ БЛОК MONET:
+    mainActivity = WeakReference(this)
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        monetModifier = { colors, isDark ->
+        getMonetColors = { isDark ->
             if (isDark) {
-                // Темная тема: берем глубокие системные тона обоев
-                colors.sentMessage = Color(getColor(android.R.color.system_accent1_700))
-                colors.sentQuote = Color(getColor(android.R.color.system_accent1_600))
-                colors.receivedMessage = Color(getColor(android.R.color.system_neutral2_700))
-                colors.receivedQuote = Color(getColor(android.R.color.system_neutral2_600))
-                colors.primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
+                listOf(
+                    Color(getColor(android.R.color.system_accent1_700)),
+                    Color(getColor(android.R.color.system_accent1_600)),
+                    Color(getColor(android.R.color.system_neutral2_700)),
+                    Color(getColor(android.R.color.system_neutral2_600)),
+                    Color(getColor(android.R.color.system_accent1_200))
+                )
             } else {
-                // Светлая тема: берем мягкие пастельные тона обоев
-                colors.sentMessage = Color(getColor(android.R.color.system_accent1_100))
-                colors.sentQuote = Color(getColor(android.R.color.system_accent1_200))
-                colors.receivedMessage = Color(getColor(android.R.color.system_neutral2_100))
-                colors.receivedQuote = Color(getColor(android.R.color.system_neutral2_200))
-                colors.primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
+                listOf(
+                    Color(getColor(android.R.color.system_accent1_100)),
+                    Color(getColor(android.R.color.system_accent1_200)),
+                    Color(getColor(android.R.color.system_neutral2_100)),
+                    Color(getColor(android.R.color.system_neutral2_200)),
+                    Color(getColor(android.R.color.system_accent1_600))
+                )
             }
         }
     }
 
-    platform.androidSetNightModeIfSupported()
-    val c = CurrentColors.value.colors
     platform.androidSetNightModeIfSupported()
     val c = CurrentColors.value.colors
     platform.androidSetStatusAndNavigationBarAppearance(c.isLight, c.isLight)
