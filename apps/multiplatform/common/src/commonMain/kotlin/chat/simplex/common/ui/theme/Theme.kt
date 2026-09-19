@@ -2,8 +2,6 @@ package chat.simplex.common.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.*
-
-var monetModifier: ((AppColors, Boolean) -> Unit)? = null
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -24,7 +22,7 @@ import kotlinx.serialization.Serializable
 import chat.simplex.res.MR
 import kotlinx.serialization.Transient
 import java.util.UUID
-
+var monetModifier: ((AppColors, Boolean) -> Unit)? = null
 // Spec: spec/services/theme.md#DefaultTheme
 enum class DefaultTheme {
   LIGHT, DARK, SIMPLEX, BLACK;
