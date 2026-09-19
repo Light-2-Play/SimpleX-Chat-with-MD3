@@ -20,7 +20,7 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | sdkmanager --licenses || true
 
-      # Скачиваем официальный APK через авторизованную утилиту GitHub CLI
+      # Скачиваем официальные APK и распаковываем библиотеки всех архитектур
       - name: Extract prebuilt Haskell core from official APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -28,17 +28,16 @@ jobs:
           mkdir -p /tmp/apk_extract
           cd /tmp/apk_extract
           
-          # Скачиваем APK из последнего официального релиза SimpleX
+          # Скачиваем все APK из релиза (и 64-бит, и 32-бит)
           gh release download --repo simplex-chat/simplex-chat --pattern "*.apk" --clobber
           
-          # Выбираем первый скачанный APK-файл
-          APK_FILE=$(ls *.apk | head -n 1)
-          echo "Используем APK: $APK_FILE"
+          # Распаковываем библиотеки из всех скачанных APK
+          for apk in *.apk; do
+            echo "Распаковка библиотек из $apk..."
+            unzip -qo "$apk" "lib/*"
+          done
           
-          # Распаковываем скомпилированные .so библиотеки ядра
-          unzip -q "$APK_FILE" "lib/*"
-          
-          # Копируем библиотеки в проект
+          # Копируем библиотеки в проект для всех архитектур
           mkdir -p $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs
           cp -r lib/* $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs/
           
