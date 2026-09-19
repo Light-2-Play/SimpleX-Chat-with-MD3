@@ -20,7 +20,7 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | sdkmanager --licenses || true
 
-      # Скачиваем официальные APK и распаковываем библиотеки всех архитектур
+      # Скачиваем официальные APK и распаковываем библиотеки
       - name: Extract prebuilt Haskell core from official APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -28,18 +28,21 @@ jobs:
           mkdir -p /tmp/apk_extract
           cd /tmp/apk_extract
           
-          # Скачиваем все APK из релиза (и 64-бит, и 32-бит)
+          # Скачиваем все APK из релиза
           gh release download --repo simplex-chat/simplex-chat --pattern "*.apk" --clobber
           
-          # Распаковываем библиотеки из всех скачанных APK
+          # Распаковываем библиотеки
           for apk in *.apk; do
             echo "Распаковка библиотек из $apk..."
             unzip -qo "$apk" "lib/*"
           done
           
-          # Копируем библиотеки в проект для всех архитектур
+          # Копируем библиотеки в проект
           mkdir -p $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs
           cp -r lib/* $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs/
+          
+          # Удаляем дубликат libapp-lib.so (его заново собрал CMake)
+          find $GITHUB_WORKSPACE/apps/multiplatform/android/src/main/jniLibs -name "libapp-lib.so" -delete
           
           mkdir -p $GITHUB_WORKSPACE/apps/multiplatform/common/src/commonMain/cpp/android/libs
           cp -r lib/* $GITHUB_WORKSPACE/apps/multiplatform/common/src/commonMain/cpp/android/libs/
