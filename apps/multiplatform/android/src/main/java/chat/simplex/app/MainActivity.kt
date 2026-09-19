@@ -1,5 +1,6 @@
 package chat.simplex.app
-import chat.simplex.common.ui.theme.getMonetColors
+import chat.simplex.common.ui.theme.MonetPalette
+import chat.simplex.common.ui.theme.getMonetPalette
 import androidx.compose.ui.graphics.Color
 import android.os.Build
 import android.content.Intent
@@ -32,22 +33,36 @@ class MainActivity: FragmentActivity() {
     mainActivity = WeakReference(this)
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        getMonetColors = { isDark ->
+        getMonetPalette = { isDark ->
             if (isDark) {
-                listOf(
-                    Color(getColor(android.R.color.system_accent1_700)),
-                    Color(getColor(android.R.color.system_accent1_600)),
-                    Color(getColor(android.R.color.system_neutral2_700)),
-                    Color(getColor(android.R.color.system_neutral2_600)),
-                    Color(getColor(android.R.color.system_accent1_200))
+                MonetPalette(
+                    primary = Color(getColor(android.R.color.system_accent1_200)),
+                    primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
+                    background = Color(getColor(android.R.color.system_neutral1_900)),
+                    surface = Color(getColor(android.R.color.system_neutral1_800)),
+                    onPrimary = Color(getColor(android.R.color.system_accent1_800)),
+                    onBackground = Color(getColor(android.R.color.system_neutral1_100)),
+                    onSurface = Color(getColor(android.R.color.system_neutral1_100)),
+                    sentMessage = Color(getColor(android.R.color.system_accent1_700)),
+                    sentQuote = Color(getColor(android.R.color.system_accent1_600)),
+                    receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
+                    receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
+                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
                 )
             } else {
-                listOf(
-                    Color(getColor(android.R.color.system_accent1_100)),
-                    Color(getColor(android.R.color.system_accent1_200)),
-                    Color(getColor(android.R.color.system_neutral2_100)),
-                    Color(getColor(android.R.color.system_neutral2_200)),
-                    Color(getColor(android.R.color.system_accent1_600))
+                MonetPalette(
+                    primary = Color(getColor(android.R.color.system_accent1_600)),
+                    primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
+                    background = Color(getColor(android.R.color.system_neutral1_50)),
+                    surface = Color(getColor(android.R.color.system_neutral1_0)),
+                    onPrimary = Color.White,
+                    onBackground = Color(getColor(android.R.color.system_neutral1_900)),
+                    onSurface = Color(getColor(android.R.color.system_neutral1_900)),
+                    sentMessage = Color(getColor(android.R.color.system_accent1_100)),
+                    sentQuote = Color(getColor(android.R.color.system_accent1_200)),
+                    receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
+                    receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
+                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
                 )
             }
         }
