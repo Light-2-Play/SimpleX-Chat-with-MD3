@@ -84,7 +84,7 @@ class MainActivity: FragmentActivity() {
       processIntent(intent)
       processExternalIntent(intent)
     }
-  }
+
     if (ChatController.appPrefs.privacyProtectScreen.get()) {
       Log.d(TAG, "onCreate: set FLAG_SECURE")
       window.setFlags(
@@ -92,8 +92,11 @@ class MainActivity: FragmentActivity() {
         WindowManager.LayoutParams.FLAG_SECURE
       )
     }
+
     enableEdgeToEdge()
+
     setContent {
+      // Здесь продолжается твой обычный блок setContent { ... }
       AppScreen()
     }
     SimplexApp.context.schedulePeriodicServiceRestartWorker()
