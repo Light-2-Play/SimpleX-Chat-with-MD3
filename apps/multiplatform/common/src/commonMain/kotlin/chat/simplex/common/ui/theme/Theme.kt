@@ -862,12 +862,12 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     shapes = Shapes,
     content = {
       val density = Density(LocalDensity.current.density * desktopDensityScaleMultiplier, LocalDensity.current.fontScale * fontSizeMultiplier)
-      val rememberedAppColors = remember {
+     val rememberedAppColors = remember {
         theme.appColors.copy()
       }.apply { 
         updateColorsFrom(theme.appColors)
-        // 3. А ЗДЕСЬ ПЕРЕКРАШИВАЕМ БАБЛЫ ЧАТА
         monet?.let { m ->
+          title = m.primary // <--- ПЕРЕКРАСИТ "YOUR SETTINGS" В СИСТЕМНЫЙ АКЦЕНТ
           sentMessage = m.sentMessage
           sentQuote = m.sentQuote
           receivedMessage = m.receivedMessage
