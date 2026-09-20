@@ -863,12 +863,12 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     shapes = Shapes,
     content = {
       val density = Density(LocalDensity.current.density * desktopDensityScaleMultiplier, LocalDensity.current.fontScale * fontSizeMultiplier)
-     val rememberedAppColors = remember {
+    val rememberedAppColors = remember {
         theme.appColors.copy()
-      }.apply { 
+      }.apply {
         updateColorsFrom(theme.appColors)
         monet?.let { m ->
-          title = m.primary // <--- ПЕРЕКРАСИТ "YOUR SETTINGS" В СИСТЕМНЫЙ АКЦЕНТ
+          title = m.primary
           sentMessage = m.sentMessage
           sentQuote = m.sentQuote
           receivedMessage = m.receivedMessage
