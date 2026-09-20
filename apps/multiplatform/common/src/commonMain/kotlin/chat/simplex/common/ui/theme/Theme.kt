@@ -917,7 +917,7 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
     content = {
       val density = Density(LocalDensity.current.density, fontScale = 1f)
 
-      val rememberedAppColors = remember {
+     val rememberedAppColors = remember {
         theme.appColors.copy()
       }.apply {
         updateColorsFrom(theme.appColors)
@@ -928,12 +928,9 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
           receivedMessage = m.receivedMessage
           receivedQuote = m.receivedQuote
           primaryVariant2 = m.primaryVariant2
-        }
-
+        } // 1. закрывает monet?.let
+      }   // 2. закрывает .apply
       val rememberedWallpaper = remember {
-      // ...дальше идет остальной оригинальный код...
-        // Explicitly creating a new object here so we don't mutate the initial [wallpaper]
-        // provided, and overwrite the values set in it.
         theme.wallpaper.copy()
       }.apply { updateWallpaperFrom(theme.wallpaper) }
       CompositionLocalProvider(
