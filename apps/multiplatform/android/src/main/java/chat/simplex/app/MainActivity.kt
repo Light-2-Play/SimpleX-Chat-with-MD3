@@ -86,6 +86,41 @@ class MainActivity: FragmentActivity() {
       processIntent(intent)
       processExternalIntent(intent)
     }
+   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        getMonetPalette = { isDark ->
+            if (isDark) {
+                MonetPalette(
+                    primary = Color(getColor(android.R.color.system_accent1_200)),
+                    primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
+                    background = Color(getColor(android.R.color.system_neutral1_900)),
+                    surface = Color(getColor(android.R.color.system_neutral1_800)),
+                    onPrimary = Color(getColor(android.R.color.system_accent1_900)),
+                    onBackground = Color(getColor(android.R.color.system_neutral1_100)),
+                    onSurface = Color(getColor(android.R.color.system_neutral1_100)),
+                    sentMessage = Color(getColor(android.R.color.system_accent1_700)),
+                    sentQuote = Color(getColor(android.R.color.system_accent1_600)),
+                    receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
+                    receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
+                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
+                )
+            } else {
+                MonetPalette(
+                    primary = Color(getColor(android.R.color.system_accent1_600)),
+                    primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
+                    background = Color(getColor(android.R.color.system_neutral2_100)),
+                    surface = Color(getColor(android.R.color.system_neutral1_50)),
+                    onPrimary = Color.White,
+                    onBackground = Color(getColor(android.R.color.system_neutral1_900)),
+                    onSurface = Color(getColor(android.R.color.system_neutral1_900)),
+                    sentMessage = Color(getColor(android.R.color.system_accent1_100)),
+                    sentQuote = Color(getColor(android.R.color.system_accent1_200)),
+                    receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
+                    receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
+                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
+                )
+            }
+        }
+    }
     if (ChatController.appPrefs.privacyProtectScreen.get()) {
       Log.d(TAG, "onCreate: set FLAG_SECURE")
       window.setFlags(
