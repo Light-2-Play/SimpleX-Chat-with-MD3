@@ -33,93 +33,58 @@ class MainActivity: FragmentActivity() {
     mainActivity = WeakReference(this)
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        getMonetPalette = { isDark ->
-            if (isDark) {
-                MonetPalette(
-                    primary = Color(getColor(android.R.color.system_accent1_200)),
-                    primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
-                    background = Color(getColor(android.R.color.system_neutral1_900)),
-                    surface = Color(getColor(android.R.color.system_neutral1_800)),
-                    onPrimary = Color(getColor(android.R.color.system_accent1_800)),
-                    onBackground = Color(getColor(android.R.color.system_neutral1_100)),
-                    onSurface = Color(getColor(android.R.color.system_neutral1_100)),
-                    sentMessage = Color(getColor(android.R.color.system_accent1_700)),
-                    sentQuote = Color(getColor(android.R.color.system_accent1_600)),
-                    receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
-                    receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
-                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
-                )
-           } else {
-                MonetPalette(
-                    primary = Color(getColor(android.R.color.system_accent1_600)),
-                    primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
-                    // Вместо 50 и 0 берем 100 и 200 — теперь фон и карточки ощутимо зальются цветом обоев:
-                    background = Color(getColor(android.R.color.system_neutral2_100)),
-                    surface = Color(getColor(android.R.color.system_neutral1_100)),
-                    onPrimary = Color.White,
-                    onBackground = Color(getColor(android.R.color.system_neutral1_900)),
-                    onSurface = Color(getColor(android.R.color.system_neutral1_900)),
-                    sentMessage = Color(getColor(android.R.color.system_accent1_100)),
-                    sentQuote = Color(getColor(android.R.color.system_accent1_200)),
-                    receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
-                    receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
-                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
-                )
-            }
+      getMonetPalette = { isDark ->
+        if (isDark) {
+          MonetPalette(
+            primary = Color(getColor(android.R.color.system_accent1_200)),
+            primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
+            background = Color(getColor(android.R.color.system_neutral1_900)),
+            surface = Color(getColor(android.R.color.system_neutral1_800)),
+            onPrimary = Color(getColor(android.R.color.system_accent1_900)),
+            onBackground = Color(getColor(android.R.color.system_neutral1_100)),
+            onSurface = Color(getColor(android.R.color.system_neutral1_100)),
+            sentMessage = Color(getColor(android.R.color.system_accent1_700)),
+            sentQuote = Color(getColor(android.R.color.system_accent1_600)),
+            receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
+            receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
+            primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
+          )
+        } else {
+          MonetPalette(
+            primary = Color(getColor(android.R.color.system_accent1_600)),
+            primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
+            background = Color(getColor(android.R.color.system_neutral2_100)),
+            surface = Color(getColor(android.R.color.system_neutral1_100)),
+            onPrimary = Color.White,
+            onBackground = Color(getColor(android.R.color.system_neutral1_900)),
+            onSurface = Color(getColor(android.R.color.system_neutral1_900)),
+            sentMessage = Color(getColor(android.R.color.system_accent1_100)),
+            sentQuote = Color(getColor(android.R.color.system_accent1_200)),
+            receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
+            receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
+            primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
+          )
+        }
+      }
+    }
 
     platform.androidSetNightModeIfSupported()
     val c = CurrentColors.value.colors
     platform.androidSetStatusAndNavigationBarAppearance(c.isLight, c.isLight)
     applyAppLocale(ChatModel.controller.appPrefs.appLanguage)
-    // This flag makes status bar and navigation bar fully transparent. But on API level < 30 it breaks insets entirely
-    // https://issuetracker.google.com/issues/236862874
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
       window.setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
     }
+
     super.onCreate(savedInstanceState)
-    // testJson()
-    // When call ended and orientation changes, it re-process old intent, it's unneeded.
-    // Only needed to be processed on first creation of activity
+
     if (savedInstanceState == null) {
       processNotificationIntent(intent)
       processIntent(intent)
       processExternalIntent(intent)
     }
-   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        getMonetPalette = { isDark ->
-            if (isDark) {
-                MonetPalette(
-                    primary = Color(getColor(android.R.color.system_accent1_200)),
-                    primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
-                    background = Color(getColor(android.R.color.system_neutral1_900)),
-                    surface = Color(getColor(android.R.color.system_neutral1_800)),
-                    onPrimary = Color(getColor(android.R.color.system_accent1_900)),
-                    onBackground = Color(getColor(android.R.color.system_neutral1_100)),
-                    onSurface = Color(getColor(android.R.color.system_neutral1_100)),
-                    sentMessage = Color(getColor(android.R.color.system_accent1_700)),
-                    sentQuote = Color(getColor(android.R.color.system_accent1_600)),
-                    receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
-                    receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
-                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
-                )
-            } else {
-                MonetPalette(
-                    primary = Color(getColor(android.R.color.system_accent1_600)),
-                    primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
-                    background = Color(getColor(android.R.color.system_neutral2_100)),
-                    surface = Color(getColor(android.R.color.system_neutral1_50)),
-                    onPrimary = Color.White,
-                    onBackground = Color(getColor(android.R.color.system_neutral1_900)),
-                    onSurface = Color(getColor(android.R.color.system_neutral1_900)),
-                    sentMessage = Color(getColor(android.R.color.system_accent1_100)),
-                    sentQuote = Color(getColor(android.R.color.system_accent1_200)),
-                    receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
-                    receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
-                    primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
-                )
-            }
-        }
-    }
+  }
     if (ChatController.appPrefs.privacyProtectScreen.get()) {
       Log.d(TAG, "onCreate: set FLAG_SECURE")
       window.setFlags(
