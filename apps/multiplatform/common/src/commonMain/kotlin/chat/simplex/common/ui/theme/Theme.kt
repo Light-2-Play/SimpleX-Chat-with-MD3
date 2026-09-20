@@ -930,9 +930,7 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
           primaryVariant2 = m.primaryVariant2
 
           // --- ДОБАВЛЯЕМ ПЕРЕКРАСКУ ФОНОВ И КАРТОЧЕК ---
-          background = m.background        // Общий фон экранов
-          item = m.surface                // Карточки в настройках и списках (вместо белого)
-          chatBackground = m.background    // Фон диалога
+          background = m.background        // Общий фон экрано
         }
 
       val rememberedWallpaper = remember {
