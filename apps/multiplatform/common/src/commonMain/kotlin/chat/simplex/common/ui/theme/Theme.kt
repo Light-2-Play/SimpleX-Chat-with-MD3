@@ -816,16 +816,8 @@ fun reactOnDarkThemeChanges(isDark: Boolean) {
 // Spec: spec/services/theme.md#SimpleXTheme
 @Composable
 fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
-// TODO: Fix preview working with dark/light theme
-
-//  LaunchedEffect(darkTheme) {
-//    // For preview
-//    if (darkTheme != null)
-//      CurrentColors.value = ThemeManager.currentColors(darkTheme, null, null, chatModel.currentUser.value?.uiThemes, appPreferences.themeOverrides.get())
-//  }
   val systemDark = rememberUpdatedState(isSystemInDarkTheme())
   LaunchedEffect(Unit) {
-    // snapshotFlow vs LaunchedEffect reduce number of recomposes
     snapshotFlow { systemDark.value }
       .collect {
         reactOnDarkThemeChanges(systemDark.value)
@@ -833,73 +825,19 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
   }
   val theme by CurrentColors.collectAsState()
   LaunchedEffect(Unit) {
-    // snapshotFlow vs LaunchedEffect reduce number of recomposes when user is changed or it's themes
     snapshotFlow { chatModel.currentUser.value?.uiThemes }
       .collect {
         ThemeManager.applyTheme(appPrefs.currentTheme.get()!!)
       }
   }
 
-  // 1. ПОЛУЧАЕМ МОНЕТ И ПЕРЕКРАШИВАЕМ МАТЕРИАЛ-ЦВЕТА (ФОН, ШАПКИ, ТЕКСТ)
   val monet = getMonetPalette?.invoke(systemDark.value)
   val appMaterialColors = if (monet != null) {
     theme.colors.copy(
       primary = monet.primary,
       primaryVariant = monet.primaryVariant,
       secondary = monet.primaryVariant2,
-      secondaryVariant = monet.primaryVariant2, // <-- ЭТО ЗАМЕНЯЕТ ЗЕЛЕНЫЙ "Additional secondary" НА СИСТЕМНЫЙ АКЦЕНТ!
-      background = monet.background,
-      surface = monet.surface,                  // <-- ЭТО ПЕРЕКРАШИВАЕТ "Menus & alerts" И КАРТОЧКИ
-      onPrimary = monet.onPrimary,
-      onBackground = monet.onBackground,
-      onSurface = monet.onSurface
-    )
-  } else {
-    theme.colors
-  }
-  MaterialTheme(
-    colors = appMaterialColors, // <-- 2. СЮДА ВСТАВЛЯЕМ appMaterialColors ВМЕСТО theme.colors
-    typography = Typography,
-    shapes = Shapes,
-    content = {
-      val density = Density(LocalDensity.current.density * desktopDensityScaleMultiplier, LocalDensity.current.fontScale * fontSizeMultiplier)
-    val rememberedAppColors = remember {
-        theme.appColors.copy()
-      }.apply {
-        updateColorsFrom(theme.appColors)
-        monet?.let { m ->
-          title = m.primary
-          sentMessage = m.sentMessage
-          sentQuote = m.sentQuote
-          receivedMessage = m.receivedMessage
-          receivedQuote = m.receivedQuote
-          primaryVariant2 = m.primaryVariant2
-        }
-      }
-      val rememberedWallpaper = remember {
-        // Explicitly creating a new object here so we don't mutate the initial [wallpaper]
-        // provided, and overwrite the values set in it.
-        theme.wallpaper.copy()
-      }.apply { updateWallpaperFrom(theme.wallpaper) }
-      CompositionLocalProvider(
-        LocalContentColor provides MaterialTheme.colors.onBackground,
-        LocalAppColors provides rememberedAppColors,
-        LocalAppWallpaper provides rememberedWallpaper,
-        LocalDensity provides density,
-        content = content
-      )
-    }
-  )
-}
-
-@Composable
-fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable () -> Unit) {
-  val monet = getMonetPalette?.invoke(!theme.colors.isLight)
-
-  val appMaterialColors = if (monet != null) {
-    theme.colors.copy(
-      primary = monet.primary,
-      primaryVariant = monet.primaryVariant,
+      secondaryVariant = monet.primaryVariant2, // <-- Исправляет зеленый в основном интерфейсе
       background = monet.background,
       surface = monet.surface,
       onPrimary = monet.onPrimary,
@@ -917,7 +855,7 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
     content = {
       val density = Density(LocalDensity.current.density, fontScale = 1f)
 
-     val rememberedAppColors = remember {
+      val rememberedAppColors = remember {
         theme.appColors.copy()
       }.apply {
         updateColorsFrom(theme.appColors)
@@ -928,16 +866,74 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
           receivedMessage = m.receivedMessage
           receivedQuote = m.receivedQuote
           primaryVariant2 = m.primaryVariant2
-        } // 1. закрывает monet?.let
-      }   // 2. закрывает .apply
+        }
+      }
+
       val rememberedWallpaper = remember {
         theme.wallpaper.copy()
       }.apply { updateWallpaperFrom(theme.wallpaper) }
+
       CompositionLocalProvider(
         LocalContentColor provides MaterialTheme.colors.onBackground,
         LocalAppColors provides rememberedAppColors,
         LocalAppWallpaper provides rememberedWallpaper,
-        content = content)
+        content = content
+      )
+    }
+  )
+}
+
+@Composable
+fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable () -> Unit) {
+  val monet = getMonetPalette?.invoke(!theme.colors.isLight)
+
+  val appMaterialColors = if (monet != null) {
+    theme.colors.copy(
+      primary = monet.primary,
+      primaryVariant = monet.primaryVariant,
+      secondary = monet.primaryVariant2,
+      secondaryVariant = monet.primaryVariant2, // <-- Исправляет зеленый в оверрайдах
+      background = monet.background,
+      surface = monet.surface,
+      onPrimary = monet.onPrimary,
+      onBackground = monet.onBackground,
+      onSurface = monet.onSurface
+    )
+  } else {
+    theme.colors
+  }
+
+  MaterialTheme(
+    colors = appMaterialColors,
+    typography = Typography,
+    shapes = Shapes,
+    content = {
+      val density = Density(LocalDensity.current.density, fontScale = 1f)
+
+      val rememberedAppColors = remember {
+        theme.appColors.copy()
+      }.apply {
+        updateColorsFrom(theme.appColors)
+        monet?.let { m ->
+          title = m.primary
+          sentMessage = m.sentMessage
+          sentQuote = m.sentQuote
+          receivedMessage = m.receivedMessage
+          receivedQuote = m.receivedQuote
+          primaryVariant2 = m.primaryVariant2
+        }
+      }
+
+      val rememberedWallpaper = remember {
+        theme.wallpaper.copy()
+      }.apply { updateWallpaperFrom(theme.wallpaper) }
+
+      CompositionLocalProvider(
+        LocalContentColor provides MaterialTheme.colors.onBackground,
+        LocalAppColors provides rememberedAppColors,
+        LocalAppWallpaper provides rememberedWallpaper,
+        content = content
+      )
     }
   )
 }
