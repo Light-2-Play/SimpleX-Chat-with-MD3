@@ -49,12 +49,13 @@ class MainActivity: FragmentActivity() {
                     receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
                     primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
                 )
-            } else {
+           } else {
                 MonetPalette(
                     primary = Color(getColor(android.R.color.system_accent1_600)),
                     primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
-                    background = Color(getColor(android.R.color.system_neutral1_50)),
-                    surface = Color(getColor(android.R.color.system_neutral1_0)),
+                    // Вместо 50 и 0 берем 100 и 200 — теперь фон и карточки ощутимо зальются цветом обоев:
+                    background = Color(getColor(android.R.color.system_neutral2_100)),
+                    surface = Color(getColor(android.R.color.system_neutral1_100)),
                     onPrimary = Color.White,
                     onBackground = Color(getColor(android.R.color.system_neutral1_900)),
                     onSurface = Color(getColor(android.R.color.system_neutral1_900)),
@@ -65,8 +66,6 @@ class MainActivity: FragmentActivity() {
                     primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
                 )
             }
-        }
-    }
 
     platform.androidSetNightModeIfSupported()
     val c = CurrentColors.value.colors
