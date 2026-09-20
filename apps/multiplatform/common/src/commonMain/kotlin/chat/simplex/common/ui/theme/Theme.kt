@@ -921,6 +921,7 @@ fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable (
       }.apply {
         updateColorsFrom(theme.appColors)
         monet?.let { m ->
+          title = m.primary
           sentMessage = m.sentMessage
           sentQuote = m.sentQuote
           receivedMessage = m.receivedMessage
