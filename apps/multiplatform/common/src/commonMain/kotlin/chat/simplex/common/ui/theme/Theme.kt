@@ -846,8 +846,10 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     theme.colors.copy(
       primary = monet.primary,
       primaryVariant = monet.primaryVariant,
+      secondary = monet.primaryVariant2,
+      secondaryVariant = monet.primaryVariant2, // <-- ЭТО ЗАМЕНЯЕТ ЗЕЛЕНЫЙ "Additional secondary" НА СИСТЕМНЫЙ АКЦЕНТ!
       background = monet.background,
-      surface = monet.surface,
+      surface = monet.surface,                  // <-- ЭТО ПЕРЕКРАШИВАЕТ "Menus & alerts" И КАРТОЧКИ
       onPrimary = monet.onPrimary,
       onBackground = monet.onBackground,
       onSurface = monet.onSurface
@@ -855,7 +857,6 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
   } else {
     theme.colors
   }
-
   MaterialTheme(
     colors = appMaterialColors, // <-- 2. СЮДА ВСТАВЛЯЕМ appMaterialColors ВМЕСТО theme.colors
     typography = Typography,
