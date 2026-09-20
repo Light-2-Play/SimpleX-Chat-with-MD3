@@ -60,8 +60,8 @@ class MainActivity: FragmentActivity() {
             onSurface = Color(getColor(android.R.color.system_neutral1_900)),
             sentMessage = Color(getColor(android.R.color.system_accent1_100)),
             sentQuote = Color(getColor(android.R.color.system_accent1_200)),
-            receivedMessage = Color(getColor(android.R.color.system_neutral2_100)),
-            receivedQuote = Color(getColor(android.R.color.system_neutral2_200)),
+            receivedMessage = Color(getColor(android.R.color.system_neutral2_200)), 
+            receivedQuote = Color(getColor(android.R.color.system_neutral2_300)),
             primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
           )
         }
