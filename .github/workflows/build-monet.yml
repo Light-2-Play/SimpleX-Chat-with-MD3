@@ -53,21 +53,21 @@ jobs:
       - name: Build ByeByeDPI (romanvht) for arm64
         run: |
           export GIT_TERMINAL_PROMPT=0
-          # Клонируем репозиторий Романа вместе с вложенными подмодулями ядра
           git clone --depth 1 --recurse-submodules https://github.com/romanvht/ByeByeDPI.git byedpi-src
-          
+
           NDK_PATH="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
           CLANG="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang"
 
-          # Находим директорию с исходниками ciadpi.c внутри репозитория Романа
-          SRC_DIR=$(find byedpi-src -name "ciadpi.c" -exec dirname {} \; | head -n 1)
-          cd "$SRC_DIR"
-          $CLANG -O2 -fPIE -pie -o libciadpi.so *.c -lpthread
+          # Переходим напрямую в каталог исходников ядра
+          cd byedpi-src/app/src/main/cpp/byedpi
 
-          # Переносим скомпилированную библиотеку в проект SimpleX
+          # Компилируем нативный исполняемый бинарник под arm64
+          $CLANG -O2 -fPIE -pie -o libciadpi.so *.c
+
+          # Копируем готовый файл в jniLibs проекта SimpleX
           cd "$GITHUB_WORKSPACE"
           mkdir -p apps/multiplatform/android/src/main/jniLibs/arm64-v8a
-          cp byedpi-src/**/libciadpi.so apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libciadpi.so
+          cp byedpi-src/app/src/main/cpp/byedpi/libciadpi.so apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libciadpi.so
           rm -rf byedpi-src
 
       - name: Build Debug APK
