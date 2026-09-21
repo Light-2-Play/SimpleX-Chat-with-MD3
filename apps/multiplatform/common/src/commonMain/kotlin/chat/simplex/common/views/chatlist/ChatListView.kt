@@ -631,20 +631,21 @@ private fun ChatListToolbar(userPickerState: MutableStateFlow<AnimatedViewState>
     onTop = !oneHandUI.value,
     onSearchValueChanged = {},
     buttons = {
-      androidx.compose.material.IconButton(
+      IconButton(
         onClick = {
-          chat.simplex.common.views.helpers.ByeDpiBridge.showDialog?.invoke()
+          ByeDpiBridge.showDialog?.invoke()
         }
       ) {
-        androidx.compose.material.Icon(
-          imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+        Icon(
+          imageVector = Icons.Default.Lock,
           contentDescription = "ByeDPI Presets",
           tint = MaterialTheme.colors.onBackground
         )
       }
       barButtons.forEach { it() }
     }
-
+  )
+}
 @Composable
 fun SubscriptionStatusIndicator(click: (() -> Unit)) {
   var subs by remember { mutableStateOf(SMPServerSubs.newSMPServerSubs) }
