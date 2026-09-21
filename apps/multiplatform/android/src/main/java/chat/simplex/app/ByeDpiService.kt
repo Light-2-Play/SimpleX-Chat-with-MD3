@@ -23,10 +23,10 @@ object ByeDpiService {
 
   // Проверенные пресеты против ТСПУ
   val PRESETS = listOf(
-    "1. Fake + Reverse (Универсальный)" to "-s 1 -q 1 -f -1 -r 1+s -a",
-    "2. DropWall-H2 (Lite)"              to "-s 3 -d -1+s -r 2+s -f -1 -n yandex.ru -t 4",
-    "3. AFTC (Lite)"                      to "-s 2 -d 2+s -r 1+s -t 5",
-    "4. AFTC (Pro)"               to "-s 4 -d -1+s -r 3+s -f -1 -n vk.ru -t 7",
+    "1. Fake + Reverse (Универсальный)" to "-s 1 -q 1 -f 3 -r 1+s -a",
+    "2. DropWall-H2 (Lite)"              to "-s 3 -d 1+s -r 2+s -f 1 -n yandex.ru -t 4",
+    "3. AFTC (Lite)"                      to "-s 2 -d 1+s -r 1+s -t 5",
+    "4. AFTC (Pro)"               to "-s 4 -d 1+s -r 3+s -f 3 -n vk.ru -t 9",
   )
 
   init {
