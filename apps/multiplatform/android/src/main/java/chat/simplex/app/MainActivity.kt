@@ -94,8 +94,8 @@ class MainActivity: FragmentActivity() {
     }
 
     // Запуск ByeDPI SOCKS5 сервиса
-    ByeDpiService.start()
-
+   ByeDpiService.start(this)
+   
     enableEdgeToEdge()
 
     setContent {
