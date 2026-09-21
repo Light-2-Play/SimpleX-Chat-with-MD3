@@ -177,6 +177,9 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:$workVersion")
     implementation("androidx.work:work-multiprocess:$workVersion")
 
+    // ByeByeDPI
+    implementation("com.github.romanvht:ByeByeDPI:master-SNAPSHOT")
+
     implementation("com.jakewharton:process-phoenix:3.0.0")
 
     //Camera Permission
