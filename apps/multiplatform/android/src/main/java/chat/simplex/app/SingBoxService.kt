@@ -3,6 +3,7 @@ package chat.simplex.app
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,6 +16,7 @@ import kotlin.concurrent.thread
 
 object SingBoxService {
 
+  private const val TAG = "SingBoxService"
   private const val CONFIG_URL = "https://cdn.jsdelivr.net/gh/awesome-vpn/awesome-vpn@master/sing-box.json"
   private const val LOCAL_PORT = 10808
   private var process: Process? = null
@@ -45,7 +47,6 @@ object SingBoxService {
           return@thread
         }
 
-        // Запуск процесса sing-box run -c config.json
         val pb = ProcessBuilder(
           binaryFile.absolutePath,
           "run",
@@ -53,15 +54,27 @@ object SingBoxService {
           configFile.absolutePath
         )
         pb.redirectErrorStream(true)
-        process = pb.start()
+        val proc = pb.start()
+        process = proc
 
-        // Проверяем поднятие сокета 127.0.0.1:10808
+        // 1. Вычитываем логи в фоне, чтобы буфер ОС не переполнялся и не вешал ядро
+        thread(name = "SingBoxLogReader") {
+          try {
+            proc.inputStream.bufferedReader().useLines { lines ->
+              lines.forEach { line ->
+                Log.d(TAG, line)
+              }
+            }
+          } catch (_: Exception) {}
+        }
+
+        // 2. Проверяем доступность локального сокета 10808
         var portOpen = false
-        for (i in 0 until 15) {
+        for (i in 0 until 20) {
           Thread.sleep(300)
           try {
             Socket().use { s ->
-              s.connect(InetSocketAddress("127.0.0.1", LOCAL_PORT), 250)
+              s.connect(InetSocketAddress("127.0.0.1", LOCAL_PORT), 300)
               portOpen = true
             }
             break
@@ -73,10 +86,10 @@ object SingBoxService {
           showToast(context, "VLESS подключен (10808)")
         } else {
           stop()
-          showToast(context, "Ошибка: порт 10808 не поднялся")
+          showToast(context, "Ошибка: порт 10808 не отвечает")
         }
       } catch (e: Exception) {
-        showToast(context, "Сбой запуска: ${e.message}")
+        showToast(context, "Сбой: ${e.message}")
       }
     }
   }
@@ -89,19 +102,18 @@ object SingBoxService {
     isRunning = false
   }
 
-  // Скачивание и подмена inbounds под локальный SOCKS5
   private fun prepareConfig(context: Context): File {
     val configFile = File(context.filesDir, "singbox_active.json")
 
     try {
       val conn = URL(CONFIG_URL).openConnection() as HttpURLConnection
-      conn.connectTimeout = 7000
-      conn.readTimeout = 7000
+      conn.connectTimeout = 8000
+      conn.readTimeout = 8000
       val rawJson = conn.inputStream.bufferedReader().use { it.readText() }
 
       val root = JSONObject(rawJson)
 
-      // Заменяем секцию inbounds на наш локальный SOCKS5
+      // 1. Настраиваем Inbound строго на SOCKS5 127.0.0.1:10808
       val socksInbound = JSONObject().apply {
         put("type", "socks")
         put("tag", "socks-in")
@@ -110,15 +122,60 @@ object SingBoxService {
       }
       root.put("inbounds", JSONArray().apply { put(socksInbound) })
 
+      // 2. Находим главный тег группы прокси (auto, urltest или первый узел)
+      val outbounds = root.optJSONArray("outbounds") ?: JSONArray()
+      var targetTag = "auto"
+      if (outbounds.length() > 0) {
+        var found = false
+        for (i in 0 until outbounds.length()) {
+          val ob = outbounds.getJSONObject(i)
+          val type = ob.optString("type")
+          if (type == "urltest" || type == "selector") {
+            targetTag = ob.getString("tag")
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          targetTag = outbounds.getJSONObject(0).getString("tag")
+        }
+      }
+
+      // 3. Гарантируем, что весь трафик из socks-in идет строго через VLESS-прокси
+      val route = root.optJSONObject("route") ?: JSONObject()
+      val rules = route.optJSONArray("rules") ?: JSONArray()
+      
+      val forceProxyRule = JSONObject().apply {
+        put("inbound", JSONArray().apply { put("socks-in") })
+        put("outbound", targetTag)
+      }
+
+      // Вставляем наше правило в самое начало списка правил
+      val newRules = JSONArray().apply {
+        put(forceProxyRule)
+        for (i in 0 until rules.length()) {
+          put(rules.get(i))
+        }
+      }
+
+      route.put("rules", newRules)
+      route.put("final", targetTag)
+      root.put("route", route)
+
       configFile.writeText(root.toString(2))
     } catch (e: Exception) {
-      // Если интернет пропал, пробуем использовать ранее сохраненный файл
       if (!configFile.exists()) throw e
     }
 
     return configFile
   }
 
+  private fun showToast(context: Context, msg: String) {
+    Handler(Looper.getMainLooper()).post {
+      Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    }
+  }
+}
   private fun showToast(context: Context, msg: String) {
     Handler(Looper.getMainLooper()).post {
       Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
