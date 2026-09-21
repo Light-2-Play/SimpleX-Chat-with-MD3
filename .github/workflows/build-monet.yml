@@ -109,7 +109,7 @@ jobs:
           }
           EOF
 
-          $CLANG -O2 -shared -fPIC -D_DEFAULT_SOURCE -Dmain=ciadpi_main -o libciadpi.so *.c -llog -lpthread
+          $CLANG -O2 -shared -fPIC -D_DEFAULT_SOURCE -Dmain=ciadpi_main -o libciadpi.so *.c -llog
 
           cd "$GITHUB_WORKSPACE"
           mkdir -p apps/multiplatform/android/src/main/jniLibs/arm64-v8a
