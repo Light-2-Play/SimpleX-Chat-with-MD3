@@ -86,11 +86,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
-    packaging {
+   packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-        jniLibs.useLegacyPackaging = rootProject.extra["compression.level"] as Int != 0
+        jniLibs.useLegacyPackaging = true
     }
     android.sourceSets["main"].assets.setSrcDirs(listOf("../common/src/commonMain/resources/assets"))
     val isRelease = gradle.startParameter.taskNames.find { it.lowercase().contains("release") } != null
