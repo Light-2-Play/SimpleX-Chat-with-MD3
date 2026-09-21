@@ -58,21 +58,64 @@ jobs:
           NDK_PATH="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
           CLANG="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang"
 
-          # Переходим в папку ядра
           cd byedpi-src/app/src/main/cpp/byedpi
-
-          # Удаляем файл службы Windows, чтобы Clang его не компилировал
           rm -f win_service.c
 
-          # Компилируем нативный бинарник под arm64
-          $CLANG -O2 -fPIE -pie -D_DEFAULT_SOURCE -o libciadpi.so *.c
+          cat << 'EOF' > jni_bridge.c
+          #include <jni.h>
+          #include <string.h>
+          #include <stdlib.h>
+          #include <pthread.h>
+          #include <android/log.h>
 
-          # Переносим скомпилированную библиотеку в проект SimpleX
+          #define LOG_TAG "ciadpi"
+          #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+          extern int ciadpi_main(int argc, char **argv);
+
+          static void* run_ciadpi(void* arg) {
+              char* cmd = (char*)arg;
+              char* argv[64];
+              int argc = 0;
+              argv[argc++] = "ciadpi";
+
+              char* token = strtok(cmd, " ");
+              while (token != NULL && argc < 63) {
+                  argv[argc++] = token;
+                  token = strtok(NULL, " ");
+              }
+              argv[argc] = NULL;
+
+              LOGI("Starting ciadpi native loop");
+              ciadpi_main(argc, argv);
+              LOGI("ciadpi native loop finished");
+              free(cmd);
+              return NULL;
+          }
+
+          JNIEXPORT jint JNICALL
+          Java_chat_simplex_app_ByeDpiService_startNative(JNIEnv *env, jobject thiz, jstring args) {
+              const char *native_args = (*env)->GetStringUTFChars(env, args, 0);
+              char *cmd = strdup(native_args);
+              (*env)->ReleaseStringUTFChars(env, args, native_args);
+
+              pthread_t tid;
+              if (pthread_create(&tid, NULL, run_ciadpi, cmd) != 0) {
+                  free(cmd);
+                  return -1;
+              }
+              pthread_detach(tid);
+              return 0;
+          }
+          EOF
+
+          $CLANG -O2 -shared -fPIC -D_DEFAULT_SOURCE -Dmain=ciadpi_main -o libciadpi.so *.c -llog -lpthread
+
           cd "$GITHUB_WORKSPACE"
           mkdir -p apps/multiplatform/android/src/main/jniLibs/arm64-v8a
           cp byedpi-src/app/src/main/cpp/byedpi/libciadpi.so apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libciadpi.so
           rm -rf byedpi-src
-          
+
       - name: Build Debug APK
         run: |
           cd apps/multiplatform
