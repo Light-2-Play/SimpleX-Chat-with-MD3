@@ -56,6 +56,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.seconds
 
+// Мост для вызова Android-диалога из кроссплатформенного Compose
+object ByeDpiBridge {
+  var showDialog: (() -> Unit)? = null
+}
+
 enum class PresetTagKind { GROUP_REPORTS, FAVORITES, CONTACTS, GROUPS, CHANNELS, BUSINESS, NOTES }
 
 sealed class ActiveFilter {
