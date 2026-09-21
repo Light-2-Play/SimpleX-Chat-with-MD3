@@ -37,12 +37,13 @@ class MainActivity: FragmentActivity() {
     mainActivity = WeakReference(this)
 
     // Привязываем открытие диалога к кнопке в тулбаре
-    ByeDpiBridge.showDialog = {
-      ByeDpiService.showPresetDialog(this)
-    }
+    // Внутри onCreate() в MainActivity.kt:
+ByeDpiBridge.showDialog = {
+  SingBoxService.toggle(this)
+}
 
-    // Автоматически поднимаем демон ByeDPI на 127.0.0.1:10808 с сохраненным пресетом
-    ByeDpiService.start(this)
+// Автостарт при запуске приложения:
+SingBoxService.start(this)
     
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       getMonetPalette = { isDark ->
@@ -143,6 +144,11 @@ class MainActivity: FragmentActivity() {
     super.onStop()
     VideoPlayerHolder.stopAll()
     AppLock.appWasHidden()
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    SingBoxService.stop()
   }
 
   override fun onBackPressed() {
