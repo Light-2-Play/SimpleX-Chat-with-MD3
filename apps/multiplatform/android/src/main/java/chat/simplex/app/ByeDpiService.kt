@@ -27,8 +27,8 @@ object ByeDpiService {
     "2. Split + Offset (Без фейков)"    to "-s 2 -o 1 -q 1",
     "3. Aggressive Fake (Жесткий ТСПУ)" to "-s 1 -d 1 -f -1 -a",
     "4. Simple Disorder (Для мобильных)" to "-s 1 -d 1 -a",
-    "5. DropWall-H2 (Lite)"              to "-s 3 -d -1+s -r 2+s -f -1 -n yandex.ru -t 4 -At,r,s"
-    "6. AFTC (Pro)"               to "-s 4 -d -1+s -r 3+s -f -1 -n vk.ru -t 7 -At,r,s -o 1 -q 1"
+    "5. DropWall-H2 (Lite)"              to "-s 3 -d -1+s -r 2+s -f -1 -n yandex.ru -t 4 -At,r,s",
+    "6. AFTC (Pro)"               to "-s 4 -d -1+s -r 3+s -f -1 -n vk.ru -t 7 -At,r,s -o 1 -q 1",
   )
 
   init {
