@@ -1,43 +1,55 @@
 package chat.simplex.app
 
+import android.content.Context
 import android.util.Log
-import kotlin.concurrent.thread
+import java.io.File
 
 object ByeDpiService {
   private const val TAG = "ByeDpiService"
-  private var isRunning = false
+  private var process: Process? = null
 
   const val LOCAL_IP = "127.0.0.1"
   const val LOCAL_PORT = 10808
 
-  fun start(cmdArgs: String = "--split 1+s --disorder 1") {
-    if (isRunning) {
-      Log.d(TAG, "ByeByeDPI is already active")
+  fun start(context: Context, cmdArgs: String = "--split 1+s --disorder 1") {
+    if (process?.isAlive == true) {
+      Log.d(TAG, "ByeDPI already running")
       return
     }
 
-    thread(name = "ByeByeDPI-Thread", isDaemon = true) {
-      try {
-        isRunning = true
-        Log.i(TAG, "Starting ByeByeDPI on $LOCAL_IP:$LOCAL_PORT with args: $cmdArgs")
-        val fullArgs = "--ip $LOCAL_IP --port $LOCAL_PORT $cmdArgs"
-        com.romanvht.byebyedpi.ByeDpi.start(fullArgs)
-      } catch (e: Throwable) {
-        Log.e(TAG, "Error executing ByeByeDPI", e)
-        isRunning = false
-      }
+    val nativeDir = context.applicationInfo.nativeLibraryDir
+    val binary = File(nativeDir, "libciadpi.so")
+
+    if (!binary.exists()) {
+      Log.e(TAG, "libciadpi.so not found in $nativeDir")
+      return
+    }
+
+    binary.setExecutable(true, false)
+
+    val command = mutableListOf(
+      binary.absolutePath,
+      "--ip", LOCAL_IP,
+      "--port", LOCAL_PORT.toString()
+    )
+    command.addAll(cmdArgs.split(" ").filter { it.isNotBlank() })
+
+    try {
+      Log.d(TAG, "Starting ByeDPI: ${command.joinToString(" ")}")
+      process = ProcessBuilder(command)
+        .redirectErrorStream(true)
+        .start()
+      Log.i(TAG, "ByeDPI started on $LOCAL_IP:$LOCAL_PORT")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to start ByeDPI", e)
     }
   }
 
   fun stop() {
-    try {
-      com.romanvht.byebyedpi.ByeDpi.stop()
-      isRunning = false
-      Log.i(TAG, "ByeByeDPI stopped")
-    } catch (e: Throwable) {
-      Log.e(TAG, "Error stopping ByeByeDPI", e)
-    }
+    process?.destroy()
+    process = null
+    Log.i(TAG, "ByeDPI stopped")
   }
 
-  fun isActive(): Boolean = isRunning
+  fun isActive(): Boolean = process?.isAlive == true
 }
