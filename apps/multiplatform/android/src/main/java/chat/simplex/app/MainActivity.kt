@@ -24,7 +24,7 @@ import chat.simplex.common.platform.*
 import chat.simplex.res.MR
 import java.lang.ref.WeakReference
 import chat.simplex.app.ByeDpiService
-
+import chat.simplex.common.views.chatlist.ByeDpiBridge
 // Глобальный обработчик для открытия диалога из Compose UI
 var openByeDpiDialog: (() -> Unit)? = null
 
@@ -36,9 +36,14 @@ class MainActivity: FragmentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     mainActivity = WeakReference(this)
 
-    openByeDpiDialog = {
-  ByeDpiService.showPresetDialog(this)
-}
+    // Привязываем открытие диалога к кнопке в тулбаре
+    ByeDpiBridge.showDialog = {
+      ByeDpiService.showPresetDialog(this)
+    }
+
+    // Автоматически поднимаем демон ByeDPI на 127.0.0.1:10808 с сохраненным пресетом
+    ByeDpiService.start(this)
+    
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       getMonetPalette = { isDark ->
         if (isDark) {
