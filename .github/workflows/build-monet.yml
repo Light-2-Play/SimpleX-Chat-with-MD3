@@ -116,6 +116,14 @@ jobs:
           cp byedpi-src/app/src/main/cpp/byedpi/libciadpi.so apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libciadpi.so
           rm -rf byedpi-src
 
+      - name: Download sing-box core for Android
+        run: |
+          mkdir -p apps/multiplatform/android/src/main/jniLibs/arm64-v8a
+          curl -Lo singbox.tar.gz https://github.com/SagerNet/sing-box/releases/download/v1.11.4/sing-box-1.11.4-android-arm64.tar.gz
+          tar -xzf singbox.tar.gz
+          cp sing-box-*/sing-box apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libsingbox.so
+          chmod +x apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libsingbox.so
+
       - name: Build Debug APK
         run: |
           cd apps/multiplatform
