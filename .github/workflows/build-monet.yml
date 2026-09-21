@@ -50,6 +50,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x apps/multiplatform/gradlew
 
+      - name: Build ByeDPI (ciadpi) for arm64
+        run: |
+          git clone --depth 1 https://github.com/bol-van/byedpi.git byedpi-src
+          cd byedpi-src
+          CLANG=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang
+          $CLANG -O2 -fPIE -pie -o libciadpi.so *.c -lpthread
+          cd ..
+          mkdir -p apps/multiplatform/android/src/main/jniLibs/arm64-v8a
+          cp byedpi-src/libciadpi.so apps/multiplatform/android/src/main/jniLibs/arm64-v8a/libciadpi.so
+          rm -rf byedpi-src
+
       - name: Build Debug APK
         run: |
           cd apps/multiplatform
