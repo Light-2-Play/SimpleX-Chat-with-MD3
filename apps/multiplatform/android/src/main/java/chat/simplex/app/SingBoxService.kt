@@ -17,7 +17,7 @@ import kotlin.concurrent.thread
 object SingBoxService {
 
   private const val TAG = "SingBoxService"
-  private const val LOCAL_PORT = 10808
+  private const val LOCAL_PORT = 20808
   private var process: Process? = null
 
   // Список ссылок на подписки в порядке приоритета:
