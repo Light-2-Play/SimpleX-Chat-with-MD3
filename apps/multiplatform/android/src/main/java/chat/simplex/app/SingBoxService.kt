@@ -140,12 +140,10 @@ object SingBoxService {
       // 3. DNS: Quad9 (Основной) + Google (Резервный) через DoH (порт 443)
       val dns = JSONObject().apply {
         val servers = JSONArray().apply {
-          // Quad9 DoH (Швейцария, приватность, фильтрация фишинга)
           put(JSONObject().apply {
             put("tag", "quad9-doh")
             put("address", "https://9.9.9.9/dns-query")
           })
-          // Google DoH (Высокая скорость и глобальный аптайм)
           put(JSONObject().apply {
             put("tag", "google-doh")
             put("address", "https://8.8.8.8/dns-query")
@@ -181,54 +179,6 @@ object SingBoxService {
       root.put("outbounds", cleanOutbounds)
 
       // 5. Маршрутизация: socks-in направляется строго в рабочий VLESS-узел
-      val route = JSONObject().apply {
-        val rules = JSONArray().apply {
-          put(JSONObject().apply {
-            put("inbound", JSONArray().apply { put("socks-in") })
-            put("outbound", selectedTag)
-          })
-        }
-        put("rules", rules)
-        put("final", selectedTag)
-        put("auto_detect_interface", true)
-      }
-      root.put("route", route)
-
-      configFile.writeText(root.toString(2))
-    } catch (e: Exception) {
-      if (!configFile.exists()) throw e
-    }
-
-    return configFile
-  }
-
-      // 4. Очищаем Outbounds от мусора и находим рабочий узел
-      val cleanOutbounds = JSONArray()
-      var selectedTag = ""
-
-      for (i in 0 until sourceOutbounds.length()) {
-        val ob = sourceOutbounds.getJSONObject(i)
-        val type = ob.optString("type")
-        val tag = ob.optString("tag")
-
-        // Пропускаем TUN, блокировщики рекламы и старые селекторы
-        if (type == "direct" || type == "block" || type == "dns") continue
-
-        cleanOutbounds.put(ob)
-        if (selectedTag.isEmpty()) {
-          selectedTag = tag // Берем первый валидный сервер
-        }
-      }
-
-      // Добавляем прямой выход как fallback
-      cleanOutbounds.put(JSONObject().apply {
-        put("type", "direct")
-        put("tag", "direct")
-      })
-
-      root.put("outbounds", cleanOutbounds)
-
-      // 5. Прямой роутинг: всё из socks-in идет строго в selectedTag
       val route = JSONObject().apply {
         val rules = JSONArray().apply {
           put(JSONObject().apply {
