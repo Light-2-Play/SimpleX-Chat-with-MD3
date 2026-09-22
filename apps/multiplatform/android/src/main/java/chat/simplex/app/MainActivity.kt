@@ -46,27 +46,27 @@ override fun onCreate(savedInstanceState: Bundle?) {
     }
 
     // 2. Динамические цвета Monet (Android 12+):
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       getMonetPalette = { isDark ->
         if (isDark) {
           MonetPalette(
             // Основной акцент
             primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
-            // Secondary (светлая подложка для круглых кнопок):
+            // Светлая подложка для круглых кнопок:
             primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
-            // onPrimary (контент на светлом акценте — глубокий тёмный):
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
+            // onPrimary: стал светлее на 30% (тон 600 вместо 900)
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
             sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_700)),
-            // Additional accent 2 (контрастные акцентные глифы — тёмный тон 900):
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
+            // sentQuote: стал светлее на 30% (тон 600 вместо 900)
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
-            // Было system_accent1_100 (почти белый). Заменено на тёмный тон 900 для читаемости иконки:
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900))
+            // primaryVariant2 (иконки кнопок): стал светлее на 30% (тон 600 вместо 900)
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600))
           )
         } else {
           MonetPalette(
@@ -86,7 +86,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
         }
       }
     }
-
+   
     // 3. Родная инициализация темы и окружения SimpleX:
     platform.androidSetNightModeIfSupported()
     val c = CurrentColors.value.colors
