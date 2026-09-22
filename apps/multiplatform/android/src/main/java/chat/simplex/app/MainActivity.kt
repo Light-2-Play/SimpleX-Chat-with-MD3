@@ -33,98 +33,56 @@ class MainActivity: FragmentActivity() {
     const val OLD_ANDROID_UI_FLAGS = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
   }
 
-  override fun onCreate(savedInstanceState: Bundle?) {
+override fun onCreate(savedInstanceState: Bundle?) {
     mainActivity = WeakReference(this)
     super.onCreate(savedInstanceState)
 
-    // 1. Привязываем вызов диалога к кнопкам тулбара:
-    ByeDpiBridge.showDialog = {
-      showSingBoxDialog()
-    }
+    // 1. Привязываем открытие диалога серверов к кнопкам тулбара:
     openByeDpiDialog = {
       showSingBoxDialog()
     }
-
-    // 2. Автостарт сервиса SingBox при запуске:
-    SingBoxService.start(this)
-
-    // 3. Динамические цвета Monet (ДОЛЖНЫ быть внутри onCreate, чтобы работал getColor):
-    getMonetPalette = { isDark ->
-      if (isDark) {
-        MonetPalette(
-          primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
-          primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
-          background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
-          surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
-          onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800)),
-          onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-          onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-          sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_700)),
-          sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_800)),
-          receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
-          receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
-          primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
-        )
-      } else {
-        MonetPalette(
-          primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
-          primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
-          background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_50)),
-          surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-          onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_0)),
-          onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
-          onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
-          sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_100)),
-          sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
-          receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
-          receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_200)),
-          primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500))
-        )
-      }
+    ByeDpiBridge.showDialog = {
+      showSingBoxDialog()
     }
 
-    // ДАЛЬШЕ идет оригинальный код SimpleX внутри onCreate (window, intent, setContent и т.д.)
-    // НЕ закрывайте onCreate здесь! Метод закроется своей родной скобкой ПОСЛЕ setContent.
-
-    // Автостарт при запуске приложения:
-    SingBoxService.start(this)
-    
+    // 2. Динамические цвета Monet (Android 12+):
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       getMonetPalette = { isDark ->
         if (isDark) {
           MonetPalette(
-            primary = Color(getColor(android.R.color.system_accent1_200)),
-            primaryVariant = Color(getColor(android.R.color.system_accent1_300)),
-            background = Color(getColor(android.R.color.system_neutral1_900)),
-            surface = Color(getColor(android.R.color.system_neutral1_800)),
-            onPrimary = Color(getColor(android.R.color.system_accent1_900)),
-            onBackground = Color(getColor(android.R.color.system_neutral1_100)),
-            onSurface = Color(getColor(android.R.color.system_neutral1_100)),
-            sentMessage = Color(getColor(android.R.color.system_accent1_700)),
-            sentQuote = Color(getColor(android.R.color.system_accent1_600)),
-            receivedMessage = Color(getColor(android.R.color.system_neutral2_700)),
-            receivedQuote = Color(getColor(android.R.color.system_neutral2_600)),
-            primaryVariant2 = Color(getColor(android.R.color.system_accent1_200))
+            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
+            background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+            surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800)),
+            onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_700)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_800)),
+            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
+            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
           )
         } else {
           MonetPalette(
-            primary = Color(getColor(android.R.color.system_accent1_600)),
-            primaryVariant = Color(getColor(android.R.color.system_accent1_700)),
-            background = Color(getColor(android.R.color.system_neutral2_100)),
-            surface = Color(getColor(android.R.color.system_neutral1_100)),
-            onPrimary = Color.White,
-            onBackground = Color(getColor(android.R.color.system_neutral1_900)),
-            onSurface = Color(getColor(android.R.color.system_neutral1_900)),
-            sentMessage = Color(getColor(android.R.color.system_accent1_100)),
-            sentQuote = Color(getColor(android.R.color.system_accent1_200)),
-            receivedMessage = Color(getColor(android.R.color.system_neutral2_200)), 
-            receivedQuote = Color(getColor(android.R.color.system_neutral2_300)),
-            primaryVariant2 = Color(getColor(android.R.color.system_accent1_600))
+            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
+            background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_50)),
+            surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_0)),
+            onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_100)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
+            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
+            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_200)),
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500))
           )
         }
       }
     }
 
+    // 3. Родная инициализация темы и окружения SimpleX:
     platform.androidSetNightModeIfSupported()
     val c = CurrentColors.value.colors
     platform.androidSetStatusAndNavigationBarAppearance(c.isLight, c.isLight)
@@ -133,8 +91,6 @@ class MainActivity: FragmentActivity() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
       window.setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
     }
-
-    super.onCreate(savedInstanceState)
 
     if (savedInstanceState == null) {
       processNotificationIntent(intent)
@@ -150,27 +106,28 @@ class MainActivity: FragmentActivity() {
       )
     }
 
-    // Запуск SingBox VLESS SOCKS5 сервиса
-    SingBoxService.start(this)
+    // 4. Безопасный единственный запуск SingBox с задержкой (не блокирует сплеш-скрин):
+    try {
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        try {
+          SingBoxService.start(this)
+        } catch (e: Throwable) {
+          android.util.Log.e("SimpleXMod", "Ошибка запуска SingBox", e)
+        }
+      }, 1000)
+    } catch (e: Throwable) {
+      android.util.Log.e("SimpleXMod", "Сбой вызова Handler", e)
+    }
 
-    // Привязываем клик по замочку к открытию окна настроек/серверов:
-    openByeDpiDialog = {
-      showSingBoxDialog()
-    }
-    ByeDpiBridge.showDialog = {
-      showSingBoxDialog()
-    }
-    
     enableEdgeToEdge()
 
     setContent {
       AppScreen()
     }
 
-    // Родной хвост onCreate SimpleX (должен быть ВНУТРИ onCreate):
     SimplexApp.context.schedulePeriodicServiceRestartWorker()
     SimplexApp.context.schedulePeriodicWakeUp()
-  } // <--- ВОТ ЗДЕСЬ законно закрывается метод onCreate
+  }// <--- ВОТ ЗДЕСЬ законно закрывается метод onCreate
 
   // Теперь объявляется функция диалога (ПОСЛЕ onCreate, но ВНУТРИ класса MainActivity):
   private fun showSingBoxDialog() {
