@@ -408,12 +408,12 @@ fun SocksProxySettings(
     hostUnsaved.value = hostUnsaved.value.copy(hostUnsaved.value.text.trim())
     portUnsaved.value = portUnsaved.value.copy(portUnsaved.value.text.trim())
 
-    networkProxy.set(
+    nnetworkProxy.set(
       NetworkProxy(
         username = usernameUnsaved.value.text,
         password = passwordUnsaved.value.text,
         host = hostUnsaved.value.text,
-        port = portUnsaved.value.text.toIntOrNull() ?: 9050,
+        port = portUnsaved.value.text.toIntOrNull() ?: 20808,
         auth = proxyAuthModeUnsaved.value
       )
     )
