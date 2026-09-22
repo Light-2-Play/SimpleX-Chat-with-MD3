@@ -50,44 +50,62 @@ override fun onCreate(savedInstanceState: Bundle?) {
       getMonetPalette = { isDark ->
         if (isDark) {
           MonetPalette(
-            // КНОПКИ И АКЦЕНТЫ: единый ультра-светлый пастельный тон (тон 100)
-            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500)),
-            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
+            // Primary (M3 Tone 80) — фирменный пастельный акцент Pixel
+            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
+            // PrimaryVariant (M3 Tone 80) — подложки круглых кнопок действий
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
 
-            // ФОН: оставлен прежним глубоким тёмным
+            // Background (M3 Tone 10) — глубокий системный фон
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+            // Surface (M3 Surface Container Tone 20) — шторки профиля, карточки, меню
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
 
-            // ИКОНКИ И ТЕКСТ НА КНОПКАХ: глубокий тёмный тон для идеальной читаемости на светлом фоне
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
+            // OnPrimary (M3 Tone 20) — текст и иконки на кнопках (глубокий контрастный тон)
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800)),
 
-            // ТЕКСТ НА ФОНЕ И ПОВЕРХНОСТЯХ (как и был, светлый)
-            onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_400)),
-            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_300)),
+            // OnSurface / OnBackground (M3 Tone 90) — читаемый системный текст
+            onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
 
-            // Элементы чата и вторичные кнопки в единой светлой гамме
-            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500)),
-            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_400)),
-            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_500)),
+            // Sent Message (M3 Primary Container Tone 30) — пузырьки сообщений как в Google Messages
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
+            // Sent Quote (M3 On-Primary Container Tone 90) — цитата в исходящем сообщении
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
 
-            // Дополнительные кнопки и плашки — в тот же светлый тон 100
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400))
+            // Received Message (M3 Surface Container High Tone 25) — входящие сообщения
+            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
+            // Received Quote (M3 Tone 70) — цитата во входящем сообщении
+            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
+
+            // PrimaryVariant2 (M3 Tone 20) — иконки внутри кнопок (устраняет засветку)
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800))
           )
         } else {
           MonetPalette(
+            // Primary (M3 Tone 40) — насыщенный фирменный акцент в светлой теме
             primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
-            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
+            // PrimaryVariant (M3 Primary Container Tone 90)
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
+
+            // Background / Surface (M3 Tone 98 / Tone 95)
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_50)),
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
+
+            // OnPrimary (Tone 100) — белый текст на насыщенном акценте
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_0)),
+
+            // OnSurface / OnBackground (Tone 10)
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
-            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_100)),
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
+
+            // Пузырьки чата в светлой теме
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_200)),
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500))
+
+            // PrimaryVariant2 (Tone 10)
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900))
           )
         }
       }
