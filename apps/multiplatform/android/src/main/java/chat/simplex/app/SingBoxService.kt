@@ -57,7 +57,7 @@ object SingBoxService {
         val proc = pb.start()
         process = proc
 
-        // 1. Вычитываем логи в фоне, чтобы буфер ОС не переполнялся и не вешал ядро
+        // Вычитываем логи в фоне, чтобы буфер ОС не переполнялся
         thread(name = "SingBoxLogReader") {
           try {
             proc.inputStream.bufferedReader().useLines { lines ->
@@ -65,10 +65,12 @@ object SingBoxService {
                 Log.d(TAG, line)
               }
             }
-          } catch (_: Exception) {}
+          } catch (e: Exception) {
+            // Игнорируем закрытие потока
+          }
         }
 
-        // 2. Проверяем доступность локального сокета 10808
+        // Проверяем доступность локального сокета 10808
         var portOpen = false
         for (i in 0 until 20) {
           Thread.sleep(300)
@@ -78,7 +80,9 @@ object SingBoxService {
               portOpen = true
             }
             break
-          } catch (_: Exception) {}
+          } catch (e: Exception) {
+            // Порт еще не открыт, продолжаем опрос
+          }
         }
 
         if (portOpen) {
@@ -98,7 +102,9 @@ object SingBoxService {
     try {
       process?.destroy()
       process = null
-    } catch (_: Exception) {}
+    } catch (e: Exception) {
+      // Игнорируем
+    }
     isRunning = false
   }
 
@@ -144,13 +150,12 @@ object SingBoxService {
       // 3. Гарантируем, что весь трафик из socks-in идет строго через VLESS-прокси
       val route = root.optJSONObject("route") ?: JSONObject()
       val rules = route.optJSONArray("rules") ?: JSONArray()
-      
+
       val forceProxyRule = JSONObject().apply {
         put("inbound", JSONArray().apply { put("socks-in") })
         put("outbound", targetTag)
       }
 
-      // Вставляем наше правило в самое начало списка правил
       val newRules = JSONArray().apply {
         put(forceProxyRule)
         for (i in 0 until rules.length()) {
@@ -170,12 +175,6 @@ object SingBoxService {
     return configFile
   }
 
-  private fun showToast(context: Context, msg: String) {
-    Handler(Looper.getMainLooper()).post {
-      Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-    }
-  }
-}
   private fun showToast(context: Context, msg: String) {
     Handler(Looper.getMainLooper()).post {
       Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
