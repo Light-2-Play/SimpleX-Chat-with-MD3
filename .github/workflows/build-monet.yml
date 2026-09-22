@@ -131,33 +131,8 @@ jobs:
           cd apps/multiplatform
           ./gradlew assembleFossDebug --no-daemon
 
-      - name: Sign Android APKs
-        run: |
-          # 1. Восстанавливаем постоянный ключ из секрета
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
-
-          # 2. Находим утилиту apksigner
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
-          echo "Using apksigner: $APKSIGNER"
-
-          # 3. Создаем папку для готовых файлов
-          mkdir -p signed-apks
-
-          # 4. Подписываем каждый созданный APK с сохранением имени архитектуры
-          find . -path "*/build/outputs/apk/*" -name "*.apk" ! -name "*unaligned*" | while read -r apk; do
-            filename=$(basename "$apk")
-            echo "Signing $filename..."
-            $APKSIGNER sign \
-              --ks release.jks \
-              --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-              --out "signed-apks/${filename%.apk}-signed.apk" \
-              "$apk"
-          done
-
-      - name: Upload Signed APKs
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: simplex-chat-monet-signed
-          path: signed-apks/*.apk
+          name: simplex-chat-monet-debug
+          path: apps/multiplatform/android/build/outputs/apk/foss/debug/*.apk
