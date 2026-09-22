@@ -131,30 +131,33 @@ jobs:
           cd apps/multiplatform
           ./gradlew assembleFossDebug --no-daemon
 
-      - name: Sign Android APK
+      - name: Sign Android APKs
         run: |
-          # 1. Извлекаем постоянный ключ из секрета
+          # 1. Восстанавливаем постоянный ключ из секрета
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
 
-          # 2. Находим собранный APK в каталоге сборки
-          UNSIGNED_APK=$(find . -path "*/build/outputs/apk/*" -name "*.apk" | head -n 1)
-          echo "Found APK: $UNSIGNED_APK"
-
-          # 3. Находим утилиту apksigner
+          # 2. Находим утилиту apksigner
           APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
           echo "Using apksigner: $APKSIGNER"
 
-          # 4. Подписываем файл
-          $APKSIGNER sign \
-            --ks release.jks \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-            --key-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-            --out simplex-signed.apk \
-            "$UNSIGNED_APK"
+          # 3. Создаем папку для готовых файлов
+          mkdir -p signed-apks
 
-      - name: Upload Signed APK
+          # 4. Подписываем каждый созданный APK с сохранением имени архитектуры
+          find . -path "*/build/outputs/apk/*" -name "*.apk" ! -name "*unaligned*" | while read -r apk; do
+            filename=$(basename "$apk")
+            echo "Signing $filename..."
+            $APKSIGNER sign \
+              --ks release.jks \
+              --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+              --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
+              --key-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
+              --out "signed-apks/${filename%.apk}-signed.apk" \
+              "$apk"
+          done
+
+      - name: Upload Signed APKs
         uses: actions/upload-artifact@v4
         with:
           name: simplex-chat-monet-signed
-          path: simplex-signed.apk
+          path: signed-apks/*.apk
