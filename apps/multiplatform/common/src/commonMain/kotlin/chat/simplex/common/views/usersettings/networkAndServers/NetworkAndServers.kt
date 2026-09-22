@@ -455,7 +455,7 @@ fun SocksProxySettings(
         !validCredential(passwordUnsaved.value.text) ||
         !validHost(hostUnsaved.value.text) ||
         !validPort(portUnsaved.value.text)
-  val resetDisabled = hostUnsaved.value.text.trim() == "localhost" && portUnsaved.value.text.trim() == "9050" && proxyAuthRandomUnsaved.value && onionHosts.value == NetCfg.defaults.onionHosts
+  val resetDisabled = hostUnsaved.value.text.trim() == "127.0.0.1" && portUnsaved.value.text.trim() == "20808" && proxyAuthRandomUnsaved.value && onionHosts.value == NetCfg.defaults.onionHosts
   ModalView(
     close = {
       if (saveDisabled) {
@@ -533,12 +533,12 @@ fun SocksProxySettings(
 
       SectionView {
         SectionItemView({
-          hostUnsaved.value = hostUnsaved.value.copy("localhost", TextRange(9))
-          portUnsaved.value = portUnsaved.value.copy("9050", TextRange(4))
+          hostUnsaved.value = hostUnsaved.value.copy("127.0.0.1", TextRange(9))
+          portUnsaved.value = portUnsaved.value.copy("20808", TextRange(5))
           usernameUnsaved.value = TextFieldValue()
           passwordUnsaved.value = TextFieldValue()
-          proxyAuthRandomUnsaved.value = true
-          onionHosts.value = NetCfg.defaults.onionHosts
+          proxyAuthRandomUnsaved.value = false
+          onionHosts.value = false
         }, disabled = resetDisabled) {
           Text(stringResource(MR.strings.network_options_reset_to_defaults), color = if (resetDisabled) MaterialTheme.colors.secondary else MaterialTheme.colors.primary)
         }
