@@ -61,7 +61,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
 
             // OnPrimary (M3 Tone 20) — текст и иконки на кнопках (глубокий контрастный тон)
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800)),
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
 
             // OnSurface / OnBackground (M3 Tone 90) — читаемый системный текст
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
@@ -70,7 +70,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
             // Sent Message (M3 Primary Container Tone 30) — пузырьки сообщений как в Google Messages
             sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
             // Sent Quote (M3 On-Primary Container Tone 90) — цитата в исходящем сообщении
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
 
             // Received Message (M3 Surface Container High Tone 25) — входящие сообщения
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
@@ -100,7 +100,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
             // Пузырьки чата в светлой теме
             sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_200)),
 
