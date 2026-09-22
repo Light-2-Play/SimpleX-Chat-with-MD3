@@ -35,15 +35,63 @@ class MainActivity: FragmentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     mainActivity = WeakReference(this)
+    super.onCreate(savedInstanceState)
 
-    // Привязываем открытие диалога к кнопке в тулбаре
-    // Внутри onCreate() в MainActivity.kt:
-ByeDpiBridge.showDialog = {
-  SingBoxService.toggle(this)
-}
+    // Привязываем вызов диалога к кнопке тулбара:
+    ByeDpiBridge.showDialog = {
+      showSingBoxDialog()
+    }
+    openByeDpiDialog = {
+      showSingBoxDialog()
+    }
 
-// Автостарт при запуске приложения:
-SingBoxService.start(this)
+    // Автостарт сервиса при запуске приложения:
+    SingBoxService.start(this)
+
+    // ... остальной ваш код onCreate ...
+  } // <--- ВОТ ЗДЕСЬ ЗАКАНЧИВАЕТСЯ onCreate
+
+  // ВСТАВЛЯТЬ СЮДА (после onCreate, но внутри class MainActivity):
+  private fun showSingBoxDialog() {
+    val options = arrayOf(
+      "25 серверов (рекомендуется)",
+      "50 серверов",
+      "100 серверов",
+      "Все доступные"
+    )
+    val limits = intArrayOf(25, 50, 100, 0) // 0 означает "без ограничений"
+
+    val currentLimit = SingBoxService.getServerLimit(this)
+    var selectedIndex = limits.indexOf(currentLimit).let { if (it == -1) 0 else it }
+
+    val statusText = if (SingBoxService.isRunning) "● VLESS активен (порт 20808)" else "○ VLESS выключен"
+
+    android.app.AlertDialog.Builder(this)
+      .setTitle("Настройки VLESS Proxy")
+      .setMessage("Статус: $statusText\n\nКоличество серверов для тестирования:")
+      .setSingleChoiceItems(options, selectedIndex) { _, which ->
+        selectedIndex = which
+      }
+      .setPositiveButton(if (SingBoxService.isRunning) "Перезапустить" else "Включить") { _, _ ->
+        val newLimit = limits[selectedIndex]
+        SingBoxService.setServerLimit(this, newLimit)
+
+        if (SingBoxService.isRunning) {
+          SingBoxService.restart(this)
+        } else {
+          SingBoxService.start(this)
+        }
+      }
+      .setNegativeButton("Отключить") { _, _ ->
+        SingBoxService.stop()
+      }
+      .setNeutralButton("Отмена", null)
+      .show()
+  }
+} // <--- Конец класса MainActivity
+
+    // Автостарт при запуске приложения:
+    SingBoxService.start(this)
     
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       getMonetPalette = { isDark ->
