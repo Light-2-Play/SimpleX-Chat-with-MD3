@@ -26,6 +26,20 @@ object SingBoxService {
     "https://cdn.jsdelivr.net/gh/awesome-vpn/awesome-vpn@master/sing-box.json"
   )
 
+private const val PREFS_NAME = "singbox_preferences"
+  private const val KEY_SERVER_LIMIT = "server_limit"
+  const val DEFAULT_SERVER_LIMIT = 25 // По умолчанию отбираем 25 серверов
+
+  fun getServerLimit(context: Context): Int {
+    val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return sp.getInt(KEY_SERVER_LIMIT, DEFAULT_SERVER_LIMIT)
+  }
+
+  fun setServerLimit(context: Context, limit: Int) {
+    val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    sp.edit().putInt(KEY_SERVER_LIMIT, limit).apply()
+  }
+  
   @Volatile
   var isRunning = false
     private set
@@ -148,12 +162,12 @@ object SingBoxService {
 
     val root = JSONObject()
 
-    // 1. Логи
+    // 1. Логирование
     root.put("log", JSONObject().apply {
       put("level", "warn")
     })
 
-    // 2. Входящий сокет
+    // 2. Входящий SOCKS5-интерфейс
     val socksInbound = JSONObject().apply {
       put("type", "socks")
       put("tag", "socks-in")
@@ -181,22 +195,36 @@ object SingBoxService {
     }
     root.put("dns", dns)
 
-    // 4. Очистка Outbounds
-    val cleanOutbounds = JSONArray()
-    val proxyTags = JSONArray()
+    // 4. Умная фильтрация и выборка серверов
+    val candidateOutbounds = mutableListOf<JSONObject>()
 
     for (i in 0 until sourceOutbounds.length()) {
       val ob = sourceOutbounds.getJSONObject(i)
       val type = ob.optString("type")
-      val tag = ob.optString("tag")
 
+      // Исключаем служебные группы подписки
       if (type == "direct" || type == "block" || type == "dns" || type == "urltest" || type == "selector") continue
 
-      cleanOutbounds.put(ob)
-      proxyTags.put(tag)
+      candidateOutbounds.add(ob)
     }
 
-    // Рабочий тестовый эндпоинт Google (не блокируется ТСПУ в отличие от Cloudflare)
+    // Считываем лимит (по умолчанию 25; если передано 0 или значение больше общего числа — берутся все)
+    val limit = getServerLimit(context)
+    val selectedOutbounds = if (limit in 1 until candidateOutbounds.size) {
+      candidateOutbounds.shuffled().take(limit)
+    } else {
+      candidateOutbounds
+    }
+
+    val cleanOutbounds = JSONArray()
+    val proxyTags = JSONArray()
+
+    for (ob in selectedOutbounds) {
+      cleanOutbounds.put(ob)
+      proxyTags.put(ob.optString("tag"))
+    }
+
+    // Рабочий эндпоинт проверки Google (не блокируется ТСПУ)
     val targetTag = if (proxyTags.length() > 0) {
       val urlTestGroup = JSONObject().apply {
         put("type", "urltest")
@@ -228,7 +256,7 @@ object SingBoxService {
         })
       }
       put("rules", rules)
-      put("final", "direct") // КРИТИЧЕСКИ ВАЖНО: direct, чтобы не было взаимной блокировки
+      put("final", "direct")
     }
     root.put("route", route)
 
