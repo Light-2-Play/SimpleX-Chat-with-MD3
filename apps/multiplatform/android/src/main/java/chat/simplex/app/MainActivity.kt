@@ -130,7 +130,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
   }// <--- ВОТ ЗДЕСЬ законно закрывается метод onCreate
 
   // Теперь объявляется функция диалога (ПОСЛЕ onCreate, но ВНУТРИ класса MainActivity):
-  private fun showSingBoxDialog() {
+ private fun showSingBoxDialog() {
     val options = arrayOf(
       "25 серверов (рекомендуется)",
       "50 серверов",
@@ -145,8 +145,9 @@ override fun onCreate(savedInstanceState: Bundle?) {
     val statusText = if (SingBoxService.isRunning) "● VLESS активен (порт 20808)" else "○ VLESS выключен"
 
     android.app.AlertDialog.Builder(this)
-      .setTitle("Настройки VLESS Proxy")
-      .setMessage("Статус: $statusText\n\nКоличество серверов для тестирования:")
+      // Переносим статус в заголовок, чтобы не блокировать список:
+      .setTitle("Настройки VLESS Proxy\n$statusText")
+      // Убираем .setMessage(...) — теперь этот список гарантированно отобразится:
       .setSingleChoiceItems(options, selectedIndex) { _, which ->
         selectedIndex = which
       }
