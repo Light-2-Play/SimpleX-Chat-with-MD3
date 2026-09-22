@@ -831,18 +831,44 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
       }
   }
 
-  val monet = getMonetPalette?.invoke(systemDark.value)
+  val isDark = darkTheme ?: systemDark.value
+  val monet = getMonetPalette?.invoke(isDark)
+
   val appMaterialColors = if (monet != null) {
+    // 1. Корректируем подложки: в темной теме поднимаем яркость surface над фоном, в светлой — слегка притеняем
+    val adjustedSurface = if (!isDark) {
+      androidx.compose.ui.graphics.Color(
+        red = (monet.surface.red * 0.90f).coerceIn(0f, 1f),
+        green = (monet.surface.green * 0.90f).coerceIn(0f, 1f),
+        blue = (monet.surface.blue * 0.90f).coerceIn(0f, 1f),
+        alpha = 1f
+      )
+    } else {
+      androidx.compose.ui.graphics.Color(
+        red = (monet.surface.red * 1.18f + 0.05f).coerceIn(0f, 1f),
+        green = (monet.surface.green * 1.18f + 0.05f).coerceIn(0f, 1f),
+        blue = (monet.surface.blue * 1.18f + 0.05f).coerceIn(0f, 1f),
+        alpha = 1f
+      )
+    }
+
+    // 2. Высококонтрастный базовый цвет для текста и неактивных кнопок (вызовы, действия)
+    val adjustedOnSurface = if (!isDark) {
+      androidx.compose.ui.graphics.Color(0xFF191C1E) // Четкий темный для светлой темы
+    } else {
+      androidx.compose.ui.graphics.Color(0xFFE2E2E6) // Яркий светлый для темной темы (не растворяется при альфе 0.38)
+    }
+
     theme.colors.copy(
       primary = monet.primary,
       primaryVariant = monet.primaryVariant,
       secondary = monet.primaryVariant2,
-      secondaryVariant = monet.primaryVariant2, // <-- Исправляет зеленый в основном интерфейсе
+      secondaryVariant = monet.primaryVariant2, // Исправляет зеленый в основном интерфейсе
       background = monet.background,
-      surface = monet.surface,
+      surface = adjustedSurface,
       onPrimary = monet.onPrimary,
-      onBackground = monet.onBackground,
-      onSurface = monet.onSurface
+      onBackground = adjustedOnSurface,
+      onSurface = adjustedOnSurface
     )
   } else {
     theme.colors
@@ -885,19 +911,46 @@ fun SimpleXTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
 
 @Composable
 fun SimpleXThemeOverride(theme: ThemeManager.ActiveTheme, content: @Composable () -> Unit) {
-  val monet = getMonetPalette?.invoke(!theme.colors.isLight)
+  val isDark = !theme.colors.isLight
+  val monet = getMonetPalette?.invoke(isDark)
 
   val appMaterialColors = if (monet != null) {
+    // 1. Корректируем подложки (surface), чтобы плашки дат и карточки не сливались с фоном
+    val adjustedSurface = if (!isDark) {
+      // Для светлой темы: мягко опускаем яркость surface на 10%, чтобы появился контраст с фоном чата
+      Color(
+        red = (monet.surface.red * 0.90f).coerceIn(0f, 1f),
+        green = (monet.surface.green * 0.90f).coerceIn(0f, 1f),
+        blue = (monet.surface.blue * 0.90f).coerceIn(0f, 1f),
+        alpha = 1f
+      )
+    } else {
+      // Для темной темы: делаем подложку чуть светлее глубокого темного фона
+      Color(
+        red = (monet.surface.red * 1.15f + 0.04f).coerceIn(0f, 1f),
+        green = (monet.surface.green * 1.15f + 0.04f).coerceIn(0f, 1f),
+        blue = (monet.surface.blue * 1.15f + 0.04f).coerceIn(0f, 1f),
+        alpha = 1f
+      )
+    }
+
+    // 2. Усиливаем onSurface: теперь неактивные кнопки с альфой 0.38f остаются четко различимыми
+    val adjustedOnSurface = if (!isDark) {
+      Color(0xFF191C1E) // Глубокий контрастный темный для светлой темы
+    } else {
+      Color(0xFFE2E2E6) // Чистый контрастный светлый для темной темы
+    }
+
     theme.colors.copy(
       primary = monet.primary,
       primaryVariant = monet.primaryVariant,
       secondary = monet.primaryVariant2,
-      secondaryVariant = monet.primaryVariant2, // <-- Исправляет зеленый в оверрайдах
+      secondaryVariant = monet.primaryVariant2, // Исправляет зеленый в оверрайдах
       background = monet.background,
-      surface = monet.surface,
+      surface = adjustedSurface,
       onPrimary = monet.onPrimary,
-      onBackground = monet.onBackground,
-      onSurface = monet.onSurface
+      onBackground = adjustedOnSurface,
+      onSurface = adjustedOnSurface
     )
   } else {
     theme.colors
