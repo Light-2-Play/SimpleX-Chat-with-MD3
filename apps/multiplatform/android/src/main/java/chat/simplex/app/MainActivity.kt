@@ -23,7 +23,7 @@ import chat.simplex.common.views.onboarding.*
 import chat.simplex.common.platform.*
 import chat.simplex.res.MR
 import java.lang.ref.WeakReference
-import chat.simplex.app.ByeDpiService
+import chat.simplex.app.SingBoxService
 import chat.simplex.common.views.chatlist.ByeDpiBridge
 // Глобальный обработчик для открытия диалога из Compose UI
 var openByeDpiDialog: (() -> Unit)? = null
@@ -106,8 +106,8 @@ SingBoxService.start(this)
       )
     }
 
-    // Запуск ByeDPI SOCKS5 сервиса
-   ByeDpiService.start(this)
+   // Запуск SingBox VLESS SOCKS5 сервиса
+    SingBoxService.start(this)
    
     enableEdgeToEdge()
 
