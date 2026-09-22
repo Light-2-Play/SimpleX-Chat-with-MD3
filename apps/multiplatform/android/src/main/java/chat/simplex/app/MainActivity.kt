@@ -157,14 +157,22 @@ class MainActivity: FragmentActivity() {
     openByeDpiDialog = {
       showSingBoxDialog()
     }
+    ByeDpiBridge.showDialog = {
+      showSingBoxDialog()
+    }
     
     enableEdgeToEdge()
 
     setContent {
       AppScreen()
     }
-  } // <--- ЗДЕСЬ заканчивается onCreate (закрывающая скобка после setContent)
-// Вставлять сразу ПОСЛЕ закрытия onCreate:
+
+    // Родной хвост onCreate SimpleX (должен быть ВНУТРИ onCreate):
+    SimplexApp.context.schedulePeriodicServiceRestartWorker()
+    SimplexApp.context.schedulePeriodicWakeUp()
+  } // <--- ВОТ ЗДЕСЬ законно закрывается метод onCreate
+
+  // Теперь объявляется функция диалога (ПОСЛЕ onCreate, но ВНУТРИ класса MainActivity):
   private fun showSingBoxDialog() {
     val options = arrayOf(
       "25 серверов (рекомендуется)",
@@ -200,12 +208,6 @@ class MainActivity: FragmentActivity() {
       }
       .setNeutralButton("Отмена", null)
       .show()
-  }
-
-  // Дальше продолжаются остальные методы класса (onResume, onPause и т.д.)
-  
-    SimplexApp.context.schedulePeriodicServiceRestartWorker()
-    SimplexApp.context.schedulePeriodicWakeUp()
   }
 
   override fun onNewIntent(intent: Intent) {
