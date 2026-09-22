@@ -408,7 +408,7 @@ fun SocksProxySettings(
     hostUnsaved.value = hostUnsaved.value.copy(hostUnsaved.value.text.trim())
     portUnsaved.value = portUnsaved.value.copy(portUnsaved.value.text.trim())
 
-    nnetworkProxy.set(
+    networkProxy.set(
       NetworkProxy(
         username = usernameUnsaved.value.text,
         password = passwordUnsaved.value.text,
@@ -537,8 +537,8 @@ fun SocksProxySettings(
           portUnsaved.value = portUnsaved.value.copy("20808", TextRange(5))
           usernameUnsaved.value = TextFieldValue()
           passwordUnsaved.value = TextFieldValue()
-          proxyAuthRandomUnsaved.value = false
-          onionHosts.value = false
+          proxyAuthRandomUnsaved.value = true
+          onionHosts.value = NetCfg.defaults.onionHosts
         }, disabled = resetDisabled) {
           Text(stringResource(MR.strings.network_options_reset_to_defaults), color = if (resetDisabled) MaterialTheme.colors.secondary else MaterialTheme.colors.primary)
         }
