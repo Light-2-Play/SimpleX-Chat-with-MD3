@@ -120,7 +120,7 @@ object SingBoxService {
     isRunning = false
   }
 
-  private fun prepareConfig(context: Context): File {
+ private fun prepareConfig(context: Context): File {
     val configFile = File(context.filesDir, "singbox_active.json")
     var rawJson: String? = null
 
@@ -153,7 +153,7 @@ object SingBoxService {
       put("level", "warn")
     })
 
-    // 2. SOCKS5 на 127.0.0.1:20808
+    // 2. Входящий сокет
     val socksInbound = JSONObject().apply {
       put("type", "socks")
       put("tag", "socks-in")
@@ -162,16 +162,18 @@ object SingBoxService {
     }
     root.put("inbounds", JSONArray().apply { put(socksInbound) })
 
-    // 3. DNS: Quad9 + Google DoH
+    // 3. DNS: Прямой опрос без зацикливания через detour: direct
     val dns = JSONObject().apply {
       val servers = JSONArray().apply {
         put(JSONObject().apply {
           put("tag", "quad9-doh")
           put("address", "https://9.9.9.9/dns-query")
+          put("detour", "direct")
         })
         put(JSONObject().apply {
           put("tag", "google-doh")
           put("address", "https://8.8.8.8/dns-query")
+          put("detour", "direct")
         })
       }
       put("servers", servers)
@@ -179,7 +181,7 @@ object SingBoxService {
     }
     root.put("dns", dns)
 
-    // 4. Очистка Outbounds и сборка urltest
+    // 4. Очистка Outbounds
     val cleanOutbounds = JSONArray()
     val proxyTags = JSONArray()
 
@@ -194,13 +196,14 @@ object SingBoxService {
       proxyTags.put(tag)
     }
 
+    // Рабочий тестовый эндпоинт Google (не блокируется ТСПУ в отличие от Cloudflare)
     val targetTag = if (proxyTags.length() > 0) {
       val urlTestGroup = JSONObject().apply {
         put("type", "urltest")
         put("tag", "auto")
         put("outbounds", proxyTags)
-        put("url", "https://cp.cloudflare.com/generate_204")
-        put("interval", "3m")
+        put("url", "https://www.gstatic.com/generate_204")
+        put("interval", "2m")
         put("tolerance", 50)
       }
       cleanOutbounds.put(urlTestGroup)
@@ -216,7 +219,7 @@ object SingBoxService {
 
     root.put("outbounds", cleanOutbounds)
 
-    // 5. Маршрутизация (БЕЗ auto_detect_interface)
+    // 5. Маршрутизация: socks-in уходит в auto, а системный трафик ядра (DNS/тесты) идет в direct
     val route = JSONObject().apply {
       val rules = JSONArray().apply {
         put(JSONObject().apply {
@@ -225,7 +228,7 @@ object SingBoxService {
         })
       }
       put("rules", rules)
-      put("final", targetTag)
+      put("final", "direct") // КРИТИЧЕСКИ ВАЖНО: direct, чтобы не было взаимной блокировки
     }
     root.put("route", route)
 
