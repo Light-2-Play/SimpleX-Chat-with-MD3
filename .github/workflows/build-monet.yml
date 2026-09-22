@@ -131,8 +131,34 @@ jobs:
           cd apps/multiplatform
           ./gradlew assembleFossDebug --no-daemon
 
-      - name: Upload APKs
+      - name: Align and Sign Android APKs
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
+
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name zipalign | sort -V | tail -n 1)
+
+          mkdir -p signed-apks
+
+          find apps/multiplatform/android/build/outputs/apk/foss/debug/ -name "*.apk" | while read -r apk; do
+            filename=$(basename "$apk")
+            echo "Processing $filename..."
+
+            # 1. Принудительно выравниваем страницы памяти на 4 КБ
+            $ZIPALIGN -f -p 4 "$apk" "aligned-$filename"
+
+            # 2. Подписываем выровненный файл постоянным ключом
+            $APKSIGNER sign \
+              --ks release.jks \
+              --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+              --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
+              --key-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
+              --out "signed-apks/${filename%.apk}-signed.apk" \
+              "aligned-$filename"
+          done
+
+      - name: Upload Signed APKs
         uses: actions/upload-artifact@v4
         with:
-          name: simplex-chat-monet-debug
-          path: apps/multiplatform/android/build/outputs/apk/foss/debug/*.apk
+          name: simplex-chat-monet-signed
+          path: signed-apks/*.apk
