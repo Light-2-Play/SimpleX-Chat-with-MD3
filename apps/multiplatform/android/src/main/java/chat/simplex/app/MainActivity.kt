@@ -68,13 +68,13 @@ override fun onCreate(savedInstanceState: Bundle?) {
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
             
             // Сообщения и плашки (меняем 700/800 на мягкие 200/300):
-            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_300)),
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_800)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_700)),
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
             
             // Дополнительный акцент (самый светлый тон для мелких индикаторов вроде 83%):
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200))
           )
         } else {
           // ветка для светлой темы остается без изменений
