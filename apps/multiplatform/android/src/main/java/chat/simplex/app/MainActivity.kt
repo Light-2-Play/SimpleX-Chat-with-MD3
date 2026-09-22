@@ -51,8 +51,8 @@ override fun onCreate(savedInstanceState: Bundle?) {
         if (isDark) {
           MonetPalette(
             // КНОПКИ И АКЦЕНТЫ: единый ультра-светлый пастельный тон (тон 100)
-            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
-            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
+            primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500)),
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
 
             // ФОН: оставлен прежним глубоким тёмным
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
@@ -66,13 +66,13 @@ override fun onCreate(savedInstanceState: Bundle?) {
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_300)),
 
             // Элементы чата и вторичные кнопки в единой светлой гамме
-            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
             sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500)),
-            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
+            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_400)),
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_500)),
 
             // Дополнительные кнопки и плашки — в тот же светлый тон 100
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300))
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400))
           )
         } else {
           MonetPalette(
