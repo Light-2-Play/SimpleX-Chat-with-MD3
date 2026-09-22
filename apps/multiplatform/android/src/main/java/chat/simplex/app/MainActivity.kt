@@ -106,8 +106,13 @@ SingBoxService.start(this)
       )
     }
 
-   // Запуск SingBox VLESS SOCKS5 сервиса
+    // Запуск SingBox VLESS SOCKS5 сервиса
     SingBoxService.start(this)
+
+    // Привязываем клик по замочку к включению/выключению VLESS
+    openByeDpiDialog = {
+      SingBoxService.toggle(this)
+    }
    
     enableEdgeToEdge()
 
