@@ -117,54 +117,129 @@ object SingBoxService {
       conn.readTimeout = 8000
       val rawJson = conn.inputStream.bufferedReader().use { it.readText() }
 
-      val root = JSONObject(rawJson)
+      val sourceRoot = JSONObject(rawJson)
+      val sourceOutbounds = sourceRoot.optJSONArray("outbounds") ?: JSONArray()
 
-      // 1. Настраиваем Inbound строго на SOCKS5 127.0.0.1:10808
+      val root = JSONObject()
+
+      // 1. Логи
+      root.put("log", JSONObject().apply {
+        put("level", "warn")
+      })
+
+      // 2. Входной сокет SOCKS5 на 127.0.0.1:10808
       val socksInbound = JSONObject().apply {
         put("type", "socks")
         put("tag", "socks-in")
         put("listen", "127.0.0.1")
         put("listen_port", LOCAL_PORT)
+        put("sniff", true)
       }
       root.put("inbounds", JSONArray().apply { put(socksInbound) })
 
-      // 2. Находим главный тег группы прокси (auto, urltest или первый узел)
-      val outbounds = root.optJSONArray("outbounds") ?: JSONArray()
-      var targetTag = "auto"
-      if (outbounds.length() > 0) {
-        var found = false
-        for (i in 0 until outbounds.length()) {
-          val ob = outbounds.getJSONObject(i)
-          val type = ob.optString("type")
-          if (type == "urltest" || type == "selector") {
-            targetTag = ob.getString("tag")
-            found = true
-            break
-          }
+      // 3. DNS: Quad9 (Основной) + Google (Резервный) через DoH (порт 443)
+      val dns = JSONObject().apply {
+        val servers = JSONArray().apply {
+          // Quad9 DoH (Швейцария, приватность, фильтрация фишинга)
+          put(JSONObject().apply {
+            put("tag", "quad9-doh")
+            put("address", "https://9.9.9.9/dns-query")
+          })
+          // Google DoH (Высокая скорость и глобальный аптайм)
+          put(JSONObject().apply {
+            put("tag", "google-doh")
+            put("address", "https://8.8.8.8/dns-query")
+          })
         }
-        if (!found) {
-          targetTag = outbounds.getJSONObject(0).getString("tag")
+        put("servers", servers)
+        put("strategy", "prefer_ipv4")
+      }
+      root.put("dns", dns)
+
+      // 4. Очищаем Outbounds и берем первый рабочий сервер
+      val cleanOutbounds = JSONArray()
+      var selectedTag = ""
+
+      for (i in 0 until sourceOutbounds.length()) {
+        val ob = sourceOutbounds.getJSONObject(i)
+        val type = ob.optString("type")
+        val tag = ob.optString("tag")
+
+        if (type == "direct" || type == "block" || type == "dns") continue
+
+        cleanOutbounds.put(ob)
+        if (selectedTag.isEmpty()) {
+          selectedTag = tag
         }
       }
 
-      // 3. Гарантируем, что весь трафик из socks-in идет строго через VLESS-прокси
-      val route = root.optJSONObject("route") ?: JSONObject()
-      val rules = route.optJSONArray("rules") ?: JSONArray()
+      cleanOutbounds.put(JSONObject().apply {
+        put("type", "direct")
+        put("tag", "direct")
+      })
 
-      val forceProxyRule = JSONObject().apply {
-        put("inbound", JSONArray().apply { put("socks-in") })
-        put("outbound", targetTag)
+      root.put("outbounds", cleanOutbounds)
+
+      // 5. Маршрутизация: socks-in направляется строго в рабочий VLESS-узел
+      val route = JSONObject().apply {
+        val rules = JSONArray().apply {
+          put(JSONObject().apply {
+            put("inbound", JSONArray().apply { put("socks-in") })
+            put("outbound", selectedTag)
+          })
+        }
+        put("rules", rules)
+        put("final", selectedTag)
+        put("auto_detect_interface", true)
       }
+      root.put("route", route)
 
-      val newRules = JSONArray().apply {
-        put(forceProxyRule)
-        for (i in 0 until rules.length()) {
-          put(rules.get(i))
+      configFile.writeText(root.toString(2))
+    } catch (e: Exception) {
+      if (!configFile.exists()) throw e
+    }
+
+    return configFile
+  }
+
+      // 4. Очищаем Outbounds от мусора и находим рабочий узел
+      val cleanOutbounds = JSONArray()
+      var selectedTag = ""
+
+      for (i in 0 until sourceOutbounds.length()) {
+        val ob = sourceOutbounds.getJSONObject(i)
+        val type = ob.optString("type")
+        val tag = ob.optString("tag")
+
+        // Пропускаем TUN, блокировщики рекламы и старые селекторы
+        if (type == "direct" || type == "block" || type == "dns") continue
+
+        cleanOutbounds.put(ob)
+        if (selectedTag.isEmpty()) {
+          selectedTag = tag // Берем первый валидный сервер
         }
       }
 
-      route.put("rules", newRules)
-      route.put("final", targetTag)
+      // Добавляем прямой выход как fallback
+      cleanOutbounds.put(JSONObject().apply {
+        put("type", "direct")
+        put("tag", "direct")
+      })
+
+      root.put("outbounds", cleanOutbounds)
+
+      // 5. Прямой роутинг: всё из socks-in идет строго в selectedTag
+      val route = JSONObject().apply {
+        val rules = JSONArray().apply {
+          put(JSONObject().apply {
+            put("inbound", JSONArray().apply { put("socks-in") })
+            put("outbound", selectedTag)
+          })
+        }
+        put("rules", rules)
+        put("final", selectedTag)
+        put("auto_detect_interface", true)
+      }
       root.put("route", route)
 
       configFile.writeText(root.toString(2))
