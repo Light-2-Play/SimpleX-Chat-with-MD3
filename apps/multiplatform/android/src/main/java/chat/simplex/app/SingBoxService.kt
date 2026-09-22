@@ -44,11 +44,19 @@ private const val PREFS_NAME = "singbox_preferences"
   var isRunning = false
     private set
 
-  fun toggle(context: Context) {
+ fun toggle(context: Context) {
     if (isRunning) {
       stop()
       showToast(context, "VLESS отключен")
     } else {
+      start(context)
+    }
+  }
+
+  fun restart(context: Context) {
+    stop()
+    thread(name = "SingBoxRestarter") {
+      Thread.sleep(600) // даем ОС полсекунды полностью освободить сокет 20808
       start(context)
     }
   }
