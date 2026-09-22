@@ -52,27 +52,27 @@ override fun onCreate(savedInstanceState: Bundle?) {
           MonetPalette(
             // КНОПКИ И АКЦЕНТЫ: единый ультра-светлый пастельный тон (тон 100)
             primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
-            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_145)),
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
 
             // ФОН: оставлен прежним глубоким тёмным
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
 
             // ИКОНКИ И ТЕКСТ НА КНОПКАХ: глубокий тёмный тон для идеальной читаемости на светлом фоне
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_840)),
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
 
             // ТЕКСТ НА ФОНЕ И ПОВЕРХНОСТЯХ (как и был, светлый)
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_400)),
-            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_400)),
+            onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_300)),
 
             // Элементы чата и вторичные кнопки в единой светлой гамме
             sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100)),
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
-            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
-            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500)),
+            receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
+            receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_500)),
 
             // Дополнительные кнопки и плашки — в тот же светлый тон 100
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300))
           )
         } else {
           MonetPalette(
@@ -80,7 +80,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
             primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_50)),
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_0)),
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_400)),
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
             sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_100)),
