@@ -50,37 +50,34 @@ override fun onCreate(savedInstanceState: Bundle?) {
       getMonetPalette = { isDark ->
         if (isDark) {
           MonetPalette(
-            // Primary (M3 Tone 80) — фирменный пастельный акцент Pixel
+            // Основной акцент (как раз кнопка справа):
             primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
-            // PrimaryVariant (M3 Tone 80) — подложки круглых кнопок действий
-            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
-
-            // Background (M3 Tone 10) — глубокий системный фон
+            
+            // Второстепенный акцент (вкладки Contacts/Groups и поиск — делаем чуть мягче основного, но СВЕТЛЫМ):
+            primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
+            
+            // Фоны (остаются тёмными):
             background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
-            // Surface (M3 Surface Container Tone 20) — шторки профиля, карточки, меню
             surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
-
-            // OnPrimary (M3 Tone 20) — текст и иконки на кнопках (глубокий контрастный тон)
-            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
-
-            // OnSurface / OnBackground (M3 Tone 90) — читаемый системный текст
+            
+            // Иконка внутри акцентной кнопки (темная на светлой кнопке):
+            onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_900)),
+            
+            // Основной текст (белый/светло-серый):
             onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
             onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
-
-            // Sent Message (M3 Primary Container Tone 30) — пузырьки сообщений как в Google Messages
-            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
-            // Sent Quote (M3 On-Primary Container Tone 90) — цитата в исходящем сообщении
-            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
-
-            // Received Message (M3 Surface Container High Tone 25) — входящие сообщения
+            
+            // Сообщения и плашки (меняем 700/800 на мягкие 200/300):
+            sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
+            sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_300)),
             receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
-            // Received Quote (M3 Tone 70) — цитата во входящем сообщении
             receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
-
-            // PrimaryVariant2 (M3 Tone 20) — иконки внутри кнопок (устраняет засветку)
-            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800))
+            
+            // Дополнительный акцент (самый светлый тон для мелких индикаторов вроде 83%):
+            primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
           )
         } else {
+          // ветка для светлой темы остается без изменений
           MonetPalette(
             // Primary (M3 Tone 40) — насыщенный фирменный акцент в светлой теме
             primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
