@@ -37,7 +37,7 @@ class MainActivity: FragmentActivity() {
     mainActivity = WeakReference(this)
     super.onCreate(savedInstanceState)
 
-    // Привязываем вызов диалога к кнопке тулбара:
+    // 1. Привязываем вызов диалога к кнопкам тулбара:
     ByeDpiBridge.showDialog = {
       showSingBoxDialog()
     }
@@ -45,50 +45,46 @@ class MainActivity: FragmentActivity() {
       showSingBoxDialog()
     }
 
-    // Автостарт сервиса при запуске приложения:
+    // 2. Автостарт сервиса SingBox при запуске:
     SingBoxService.start(this)
 
-    // ... остальной ваш код onCreate ...
-  } // <--- ВОТ ЗДЕСЬ ЗАКАНЧИВАЕТСЯ onCreate
-
-  // ВСТАВЛЯТЬ СЮДА (после onCreate, но внутри class MainActivity):
-  private fun showSingBoxDialog() {
-    val options = arrayOf(
-      "25 серверов (рекомендуется)",
-      "50 серверов",
-      "100 серверов",
-      "Все доступные"
-    )
-    val limits = intArrayOf(25, 50, 100, 0) // 0 означает "без ограничений"
-
-    val currentLimit = SingBoxService.getServerLimit(this)
-    var selectedIndex = limits.indexOf(currentLimit).let { if (it == -1) 0 else it }
-
-    val statusText = if (SingBoxService.isRunning) "● VLESS активен (порт 20808)" else "○ VLESS выключен"
-
-    android.app.AlertDialog.Builder(this)
-      .setTitle("Настройки VLESS Proxy")
-      .setMessage("Статус: $statusText\n\nКоличество серверов для тестирования:")
-      .setSingleChoiceItems(options, selectedIndex) { _, which ->
-        selectedIndex = which
+    // 3. Динамические цвета Monet (ДОЛЖНЫ быть внутри onCreate, чтобы работал getColor):
+    getMonetPalette = { isDark ->
+      if (isDark) {
+        MonetPalette(
+          primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_200)),
+          primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_300)),
+          background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+          surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_800)),
+          onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_800)),
+          onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+          onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+          sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_700)),
+          sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_800)),
+          receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_800)),
+          receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_700)),
+          primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_100))
+        )
+      } else {
+        MonetPalette(
+          primary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_600)),
+          primaryVariant = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_700)),
+          background = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_50)),
+          surface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_100)),
+          onPrimary = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_0)),
+          onBackground = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+          onSurface = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral1_900)),
+          sentMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_100)),
+          sentQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent2_200)),
+          receivedMessage = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_100)),
+          receivedQuote = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_neutral2_200)),
+          primaryVariant2 = androidx.compose.ui.graphics.Color(getColor(android.R.color.system_accent1_500))
+        )
       }
-      .setPositiveButton(if (SingBoxService.isRunning) "Перезапустить" else "Включить") { _, _ ->
-        val newLimit = limits[selectedIndex]
-        SingBoxService.setServerLimit(this, newLimit)
+    }
 
-        if (SingBoxService.isRunning) {
-          SingBoxService.restart(this)
-        } else {
-          SingBoxService.start(this)
-        }
-      }
-      .setNegativeButton("Отключить") { _, _ ->
-        SingBoxService.stop()
-      }
-      .setNeutralButton("Отмена", null)
-      .show()
-  }
-} // <--- Конец класса MainActivity
+    // ДАЛЬШЕ идет оригинальный код SimpleX внутри onCreate (window, intent, setContent и т.д.)
+    // НЕ закрывайте onCreate здесь! Метод закроется своей родной скобкой ПОСЛЕ setContent.
 
     // Автостарт при запуске приложения:
     SingBoxService.start(this)
@@ -157,17 +153,57 @@ class MainActivity: FragmentActivity() {
     // Запуск SingBox VLESS SOCKS5 сервиса
     SingBoxService.start(this)
 
-    // Привязываем клик по замочку к включению/выключению VLESS
+    // Привязываем клик по замочку к открытию окна настроек/серверов:
     openByeDpiDialog = {
-      SingBoxService.toggle(this)
+      showSingBoxDialog()
     }
-   
+    
     enableEdgeToEdge()
 
     setContent {
-      // Здесь продолжается твой обычный блок setContent { ... }
       AppScreen()
     }
+  } // <--- ЗДЕСЬ заканчивается onCreate (закрывающая скобка после setContent)
+// Вставлять сразу ПОСЛЕ закрытия onCreate:
+  private fun showSingBoxDialog() {
+    val options = arrayOf(
+      "25 серверов (рекомендуется)",
+      "50 серверов",
+      "100 серверов",
+      "Все доступные"
+    )
+    val limits = intArrayOf(25, 50, 100, 0)
+
+    val currentLimit = SingBoxService.getServerLimit(this)
+    var selectedIndex = limits.indexOf(currentLimit).let { if (it == -1) 0 else it }
+
+    val statusText = if (SingBoxService.isRunning) "● VLESS активен (порт 20808)" else "○ VLESS выключен"
+
+    android.app.AlertDialog.Builder(this)
+      .setTitle("Настройки VLESS Proxy")
+      .setMessage("Статус: $statusText\n\nКоличество серверов для тестирования:")
+      .setSingleChoiceItems(options, selectedIndex) { _, which ->
+        selectedIndex = which
+      }
+      .setPositiveButton(if (SingBoxService.isRunning) "Перезапустить" else "Включить") { _, _ ->
+        val newLimit = limits[selectedIndex]
+        SingBoxService.setServerLimit(this, newLimit)
+
+        if (SingBoxService.isRunning) {
+          SingBoxService.restart(this)
+        } else {
+          SingBoxService.start(this)
+        }
+      }
+      .setNegativeButton("Отключить") { _, _ ->
+        SingBoxService.stop()
+      }
+      .setNeutralButton("Отмена", null)
+      .show()
+  }
+
+  // Дальше продолжаются остальные методы класса (onResume, onPause и т.д.)
+  
     SimplexApp.context.schedulePeriodicServiceRestartWorker()
     SimplexApp.context.schedulePeriodicWakeUp()
   }
