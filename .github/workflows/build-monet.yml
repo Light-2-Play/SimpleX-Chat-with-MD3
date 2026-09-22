@@ -1,6 +1,8 @@
 name: Build SimpleX Chat APK
 
 on:
+  push:
+    branches: [ Flex ]
   workflow_dispatch:
 
 jobs:
