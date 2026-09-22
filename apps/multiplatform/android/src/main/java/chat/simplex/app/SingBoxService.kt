@@ -20,10 +20,6 @@ object SingBoxService {
   private const val LOCAL_PORT = 20808
   private var process: Process? = null
 
-  // Список ссылок на подписки в порядке приоритета:
-  // 1. Быстрое CDN-зеркало новой подписки Au1rxx (без блокировок)
-  // 2. Прямой GitHub raw адрес Au1rxx
-  // 3. Резервный источник awesome-vpn
   private val SUBSCRIPTION_URLS = listOf(
     "https://cdn.jsdelivr.net/gh/Au1rxx/free-vpn-subscriptions@main/output/singbox.json",
     "https://github.com/Au1rxx/free-vpn-subscriptions/raw/main/output/singbox.json",
@@ -56,6 +52,10 @@ object SingBoxService {
           return@thread
         }
 
+        try {
+          binaryFile.setExecutable(true)
+        } catch (_: Exception) {}
+
         val pb = ProcessBuilder(
           binaryFile.absolutePath,
           "run",
@@ -66,22 +66,21 @@ object SingBoxService {
         val proc = pb.start()
         process = proc
 
-        // Считываем поток вывода в фоне во избежание переполнения буфера
+        var lastLog = ""
         thread(name = "SingBoxLogReader") {
           try {
             proc.inputStream.bufferedReader().useLines { lines ->
               lines.forEach { line ->
                 Log.d(TAG, line)
+                lastLog = line
               }
             }
-          } catch (e: Exception) {
-            // Закрытие потока
-          }
+          } catch (_: Exception) {}
         }
 
-        // Проверяем доступность локального сокета 127.0.0.1:10808
+        // Проверяем открытие сокета 127.0.0.1:20808
         var portOpen = false
-        for (i in 0 until 20) {
+        for (i in 0 until 25) {
           Thread.sleep(300)
           try {
             Socket().use { s ->
@@ -89,17 +88,23 @@ object SingBoxService {
               portOpen = true
             }
             break
-          } catch (e: Exception) {
-            // Ждем запуска сокета
+          } catch (_: Exception) {
+            // Процесс мог упасть во время ожидания
+            if (!proc.isAlive) break
           }
         }
 
         if (portOpen) {
           isRunning = true
-          showToast(context, "VLESS подключен (10808)")
+          showToast(context, "VLESS подключен ($LOCAL_PORT)")
         } else {
+          val errorDetail = if (!proc.isAlive) {
+            "вылет (код ${proc.exitValue()}): $lastLog"
+          } else {
+            "таймаут порта $LOCAL_PORT"
+          }
           stop()
-          showToast(context, "Ошибка: порт 10808 не отвечает")
+          showToast(context, "Ошибка: $errorDetail")
         }
       } catch (e: Exception) {
         showToast(context, "Сбой: ${e.message}")
@@ -111,9 +116,7 @@ object SingBoxService {
     try {
       process?.destroy()
       process = null
-    } catch (e: Exception) {
-      // Игнорируем
-    }
+    } catch (_: Exception) {}
     isRunning = false
   }
 
@@ -121,7 +124,6 @@ object SingBoxService {
     val configFile = File(context.filesDir, "singbox_active.json")
     var rawJson: String? = null
 
-    // Пробуем скачать конфигурацию из доступных источников по очереди
     for (url in SUBSCRIPTION_URLS) {
       try {
         val downloaded = downloadUrl(url)
@@ -130,15 +132,15 @@ object SingBoxService {
           break
         }
       } catch (e: Exception) {
-        Log.w(TAG, "Не удалось загрузить $url: ${e.message}")
+        Log.w(TAG, "Ошибка загрузки $url: ${e.message}")
       }
     }
 
     if (rawJson.isNullOrBlank()) {
       if (configFile.exists()) {
-        return configFile // Используем ранее сохранённый кэш, если сети нет
+        return configFile
       }
-      throw IllegalStateException("Не удалось загрузить ни одну подписку")
+      throw IllegalStateException("Не удалось загрузить подписку")
     }
 
     val sourceRoot = JSONObject(rawJson)
@@ -151,17 +153,16 @@ object SingBoxService {
       put("level", "warn")
     })
 
-    // 2. Входной локальный SOCKS5 на 127.0.0.1:10808
+    // 2. SOCKS5 на 127.0.0.1:20808
     val socksInbound = JSONObject().apply {
       put("type", "socks")
       put("tag", "socks-in")
       put("listen", "127.0.0.1")
       put("listen_port", LOCAL_PORT)
-      put("sniff", true)
     }
     root.put("inbounds", JSONArray().apply { put(socksInbound) })
 
-    // 3. DNS: Quad9 + Google через DoH (порт 443)
+    // 3. DNS: Quad9 + Google DoH
     val dns = JSONObject().apply {
       val servers = JSONArray().apply {
         put(JSONObject().apply {
@@ -178,7 +179,7 @@ object SingBoxService {
     }
     root.put("dns", dns)
 
-    // 4. Фильтруем серверы и создаем группу urltest (автовыбор живого узла)
+    // 4. Очистка Outbounds и сборка urltest
     val cleanOutbounds = JSONArray()
     val proxyTags = JSONArray()
 
@@ -215,7 +216,7 @@ object SingBoxService {
 
     root.put("outbounds", cleanOutbounds)
 
-    // 5. Маршрутизация: socks-in направляется в auto-группу
+    // 5. Маршрутизация (БЕЗ auto_detect_interface)
     val route = JSONObject().apply {
       val rules = JSONArray().apply {
         put(JSONObject().apply {
@@ -225,7 +226,6 @@ object SingBoxService {
       }
       put("rules", rules)
       put("final", targetTag)
-      put("auto_detect_interface", true)
     }
     root.put("route", route)
 
@@ -233,7 +233,6 @@ object SingBoxService {
     return configFile
   }
 
-  // Скачивание по HTTP с обработкой возможных редиректов (301, 302, 307)
   private fun downloadUrl(urlString: String): String {
     var curUrl = urlString
     for (redirect in 0 until 5) {
@@ -257,7 +256,7 @@ object SingBoxService {
       }
       break
     }
-    throw IllegalStateException("Ошибка ответа сети по адресу: $urlString")
+    throw IllegalStateException("Ошибка ответа сети: $urlString")
   }
 
   private fun showToast(context: Context, msg: String) {
