@@ -163,6 +163,7 @@ gradle.taskGraph.whenReady {
 }
 
 dependencies {
+    implementation("com.google.guava:guava:31.1-android")
     implementation(project(":common"))
     "googleImplementation"("com.android.billingclient:billing:9.1.0")
     implementation("androidx.core:core-ktx:1.13.1")
