@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -101,8 +100,7 @@ class CameraActivity : ComponentActivity() {
                     setResult(Activity.RESULT_OK)
                     finish()
                 },
-                onError = { exc ->
-                    Log.e("CameraActivity", "Capture error", exc)
+                onError = {
                     setResult(Activity.RESULT_CANCELED)
                     finish()
                 },
@@ -125,14 +123,12 @@ class CameraActivity : ComponentActivity() {
 
         var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
         var isNightSightActive by remember { mutableStateOf(false) }
-        var isNightSightSupported by remember { mutableStateOf(false) }
 
         var currentCamera by remember { mutableStateOf<Camera?>(null) }
         var minZoomRatio by remember { mutableStateOf(1.0f) }
         var maxZoomRatio by remember { mutableStateOf(1.0f) }
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
-        // Кадр 4:3 на уровне CameraX
         val imageCapture = remember {
             ImageCapture.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
@@ -169,7 +165,6 @@ class CameraActivity : ComponentActivity() {
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                // Передаем и context, и cameraProvider:
                 val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context, cameraProvider)
 
                 extensionsManagerFuture.addListener({
@@ -179,11 +174,20 @@ class CameraActivity : ComponentActivity() {
                         .requireLensFacing(lensFacing)
                         .build()
 
-                    val nightAvailable = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
-                    isNightSightSupported = nightAvailable
-
-                    val finalSelector = if (isNightSightActive && nightAvailable) {
-                        extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
+                    // Форсированная попытка активации ночного режима Night Sight / Auto
+                    val finalSelector = if (isNightSightActive) {
+                        try {
+                            when {
+                                extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT) ->
+                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
+                                extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.AUTO) ->
+                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.AUTO)
+                                else ->
+                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
+                            }
+                        } catch (_: Exception) {
+                            baseSelector
+                        }
                     } else {
                         baseSelector
                     }
@@ -204,13 +208,18 @@ class CameraActivity : ComponentActivity() {
                             maxZoomRatio = zoomState.maxZoomRatio
                             currentZoomRatio = zoomState.zoomRatio
                         }
-                    } catch (e: Exception) {
-                        Log.e("CameraActivity", "Camera bind failed", e)
+                    } catch (_: Exception) {
+                        // Фоллбэк без расширений в случае сбоя привязки
+                        try {
+                            cameraProvider.unbindAll()
+                            val fallbackCamera = cameraProvider.bindToLifecycle(lifecycleOwner, baseSelector, preview, imageCapture)
+                            currentCamera = fallbackCamera
+                        } catch (_: Exception) {}
                     }
                 }, ContextCompat.getMainExecutor(context))
             }, ContextCompat.getMainExecutor(context))
         }
-        
+
         val lensPresets = remember(minZoomRatio, maxZoomRatio, lensFacing) {
             if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                 listOf(1.0f to "1×")
@@ -238,7 +247,7 @@ class CameraActivity : ComponentActivity() {
         ) {
             var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
 
-            // 1. Верхняя панель (Кнопка закрытия)
+            // Верхняя панель (Кнопка закрытия)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -259,7 +268,7 @@ class CameraActivity : ComponentActivity() {
                 }
             }
 
-            // 2. Окно видоискателя со строгим соотношением 4:3 (3f / 4f) и скруглением
+            // Видоискатель 4:3
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -290,13 +299,11 @@ class CameraActivity : ComponentActivity() {
                             bindCamera(it)
                         }
                     },
-                    update = { previewView ->
-                        bindCamera(previewView)
-                    }
+                    update = {}
                 )
             }
 
-            // 3. Нижняя панель управления (занимает всё пространство под видоискателем)
+            // Нижняя панель управления
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -305,45 +312,95 @@ class CameraActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Переключатели объективов (.5, 1x, 2x, 5x)
-                if (lensPresets.size > 1) {
-                    Row(
-                        modifier = Modifier
-                            .background(monetButtonBg, CircleShape)
-                            .padding(horizontal = 6.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        lensPresets.forEach { (ratio, label) ->
-                            val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
+                // Ряд: [По центру: переключатели объективов] + [Справа: Луна над кнопкой переворота]
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Переключатели объективов
+                    if (lensPresets.size > 1) {
+                        Row(
+                            modifier = Modifier
+                                .background(monetButtonBg, CircleShape)
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            lensPresets.forEach { (ratio, label) ->
+                                val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
 
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .background(
-                                        if (isSelected) monetAccent else Color.Transparent,
-                                        CircleShape
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .background(
+                                            if (isSelected) monetAccent else Color.Transparent,
+                                            CircleShape
+                                        )
+                                        .clickable {
+                                            currentCamera?.cameraControl?.setZoomRatio(ratio)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BasicText(
+                                        text = label,
+                                        style = TextStyle(
+                                            color = if (isSelected) Color.Black else monetAccentSoft,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            textAlign = TextAlign.Center
+                                        )
                                     )
-                                    .clickable {
-                                        currentCamera?.cameraControl?.setZoomRatio(ratio)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BasicText(
-                                    text = label,
-                                    style = TextStyle(
-                                        color = if (isSelected) Color.Black else monetAccentSoft,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        textAlign = TextAlign.Center
-                                    )
-                                )
+                                }
                             }
+                        }
+                    }
+
+                    // Кнопка принудительной активации ночного режима (строго над переворотом камеры)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .size(40.dp)
+                            .background(
+                                if (isNightSightActive) monetAccent else monetButtonBg,
+                                CircleShape
+                            )
+                            .clickable {
+                                isNightSightActive = !isNightSightActive
+                                cachedPreviewView?.let { bindCamera(it) }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.size(18.dp)) {
+                            val path = Path().apply {
+                                moveTo(size.width * 0.75f, size.height * 0.15f)
+                                cubicTo(
+                                    size.width * 0.35f, size.height * 0.15f,
+                                    size.width * 0.15f, size.height * 0.45f,
+                                    size.width * 0.25f, size.height * 0.85f
+                                )
+                                cubicTo(
+                                    size.width * 0.55f, size.height * 1.05f,
+                                    size.width * 0.95f, size.height * 0.85f,
+                                    size.width * 0.95f, size.height * 0.65f
+                                )
+                                cubicTo(
+                                    size.width * 0.65f, size.height * 0.70f,
+                                    size.width * 0.55f, size.height * 0.35f,
+                                    size.width * 0.75f, size.height * 0.15f
+                                )
+                                close()
+                            }
+                            drawPath(
+                                path = path,
+                                color = if (isNightSightActive) Color.Black else monetAccentSoft
+                            )
                         }
                     }
                 }
 
-                // Нижний ряд: [Луна (Night Sight)] — [Затвор] — [Переворот камеры]
+                // Нижний ряд: [Пустой спейсер] — [Затвор по центру] — [Переворот камеры]
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -351,52 +408,9 @@ class CameraActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Переключатель Night Sight слева
-                    if (isNightSightSupported) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(
-                                    if (isNightSightActive) monetAccent else monetButtonBg,
-                                    CircleShape
-                                )
-                                .clickable {
-                                    isNightSightActive = !isNightSightActive
-                                    cachedPreviewView?.let { bindCamera(it) }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Canvas(modifier = Modifier.size(20.dp)) {
-                                val path = Path().apply {
-                                    moveTo(size.width * 0.75f, size.height * 0.15f)
-                                    cubicTo(
-                                        size.width * 0.35f, size.height * 0.15f,
-                                        size.width * 0.15f, size.height * 0.45f,
-                                        size.width * 0.25f, size.height * 0.85f
-                                    )
-                                    cubicTo(
-                                        size.width * 0.55f, size.height * 1.05f,
-                                        size.width * 0.95f, size.height * 0.85f,
-                                        size.width * 0.95f, size.height * 0.65f
-                                    )
-                                    cubicTo(
-                                        size.width * 0.65f, size.height * 0.70f,
-                                        size.width * 0.55f, size.height * 0.35f,
-                                        size.width * 0.75f, size.height * 0.15f
-                                    )
-                                    close()
-                                }
-                                drawPath(
-                                    path = path,
-                                    color = if (isNightSightActive) Color.Black else monetAccentSoft
-                                )
-                            }
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.size(48.dp))
-                    }
+                    Spacer(modifier = Modifier.size(48.dp))
 
-                    // Кнопка затвора
+                    // Затвор
                     Box(
                         modifier = Modifier
                             .size(76.dp)
@@ -406,7 +420,7 @@ class CameraActivity : ComponentActivity() {
                             .clickable { takePhoto(imageCapture, onImageCaptured, onError) }
                     )
 
-                    // Смена камеры (основная / фронтальная)
+                    // Переворот камеры тыл/фронт
                     Box(
                         modifier = Modifier
                             .size(48.dp)
