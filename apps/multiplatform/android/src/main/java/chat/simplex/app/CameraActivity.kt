@@ -166,10 +166,12 @@ class CameraActivity : ComponentActivity() {
 
         fun bindCamera(previewView: PreviewView) {
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-            val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context)
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                // Передаем и context, и cameraProvider:
+                val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context, cameraProvider)
+
                 extensionsManagerFuture.addListener({
                     val extensionsManager = extensionsManagerFuture.get()
 
@@ -186,7 +188,6 @@ class CameraActivity : ComponentActivity() {
                         baseSelector
                     }
 
-                    // Поток превью 4:3
                     val preview = Preview.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .build().also {
@@ -209,7 +210,7 @@ class CameraActivity : ComponentActivity() {
                 }, ContextCompat.getMainExecutor(context))
             }, ContextCompat.getMainExecutor(context))
         }
-
+        
         val lensPresets = remember(minZoomRatio, maxZoomRatio, lensFacing) {
             if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                 listOf(1.0f to "1×")
