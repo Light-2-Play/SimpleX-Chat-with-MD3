@@ -1,8 +1,12 @@
+@file:OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
+
 package chat.simplex.app
 
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.hardware.camera2.CameraMetadata
+import android.hardware.camera2.CaptureRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -11,6 +15,7 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -125,17 +130,13 @@ class CameraActivity : ComponentActivity() {
         var isNightSightActive by remember { mutableStateOf(false) }
 
         var currentCamera by remember { mutableStateOf<Camera?>(null) }
+        var currentImageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+
         var minZoomRatio by remember { mutableStateOf(1.0f) }
         var maxZoomRatio by remember { mutableStateOf(1.0f) }
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
-        val imageCapture = remember {
-            ImageCapture.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .build()
-        }
-
-        // Динамические токены Monet
+        // Токены Monet
         val monetAccent = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 Color(ContextCompat.getColor(context, android.R.color.system_accent1_200))
@@ -174,48 +175,74 @@ class CameraActivity : ComponentActivity() {
                         .requireLensFacing(lensFacing)
                         .build()
 
-                    // Форсированная попытка активации ночного режима Night Sight / Auto
-                    val finalSelector = if (isNightSightActive) {
-                        try {
-                            when {
-                                extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT) ->
-                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
-                                extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.AUTO) ->
-                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.AUTO)
-                                else ->
-                                    extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
-                            }
-                        } catch (_: Exception) {
-                            baseSelector
-                        }
+                    // Проверяем вендорное расширение Pixel
+                    val hasVendorNight = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
+                    val finalSelector = if (isNightSightActive && hasVendorNight) {
+                        extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
                     } else {
                         baseSelector
                     }
 
-                    val preview = Preview.Builder()
+                    // 1. Настройка превью 4:3 с внедрением Camera2 Night Scene
+                    val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    if (isNightSightActive && !hasVendorNight) {
+                        val camera2Preview = Camera2Interop.Extender(previewBuilder)
+                        camera2Preview.setCaptureRequestOption(
+                            CaptureRequest.CONTROL_MODE,
+                            CameraMetadata.CONTROL_MODE_USE_SCENE_MODE
+                        )
+                        camera2Preview.setCaptureRequestOption(
+                            CaptureRequest.CONTROL_SCENE_MODE,
+                            CameraMetadata.CONTROL_SCENE_MODE_NIGHT
+                        )
+                    }
+
+                    val preview = previewBuilder.build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    // 2. Настройка захвата фото с принудительным MAXIMIZE_QUALITY (многокадровая склейка HDR+)
+                    val captureBuilder = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+
+                    if (isNightSightActive && !hasVendorNight) {
+                        val camera2Capture = Camera2Interop.Extender(captureBuilder)
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.CONTROL_MODE,
+                            CameraMetadata.CONTROL_MODE_USE_SCENE_MODE
+                        )
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.CONTROL_SCENE_MODE,
+                            CameraMetadata.CONTROL_SCENE_MODE_NIGHT
+                        )
+                    }
+
+                    val imageCapture = captureBuilder.build()
+                    currentImageCapture = imageCapture
 
                     try {
                         cameraProvider.unbindAll()
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
+                        // Управление экспозицией: сразу осветляем видоискатель в ночном режиме
+                        val exposureState = camera.cameraInfo.exposureState
+                        if (exposureState.isExposureCompensationSupported) {
+                            val targetIndex = if (isNightSightActive) {
+                                (exposureState.exposureCompensationRange.upper * 0.7f).toInt()
+                            } else {
+                                0
+                            }
+                            camera.cameraControl.setExposureCompensationIndex(targetIndex)
+                        }
+
                         camera.cameraInfo.zoomState.observe(lifecycleOwner) { zoomState ->
                             minZoomRatio = zoomState.minZoomRatio
                             maxZoomRatio = zoomState.maxZoomRatio
                             currentZoomRatio = zoomState.zoomRatio
                         }
-                    } catch (_: Exception) {
-                        // Фоллбэк без расширений в случае сбоя привязки
-                        try {
-                            cameraProvider.unbindAll()
-                            val fallbackCamera = cameraProvider.bindToLifecycle(lifecycleOwner, baseSelector, preview, imageCapture)
-                            currentCamera = fallbackCamera
-                        } catch (_: Exception) {}
-                    }
+                    } catch (_: Exception) {}
                 }, ContextCompat.getMainExecutor(context))
             }, ContextCompat.getMainExecutor(context))
         }
@@ -312,14 +339,13 @@ class CameraActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Ряд: [По центру: переключатели объективов] + [Справа: Луна над кнопкой переворота]
+                // Ряд: [Объективы] + [Кнопка Луна справа]
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Переключатели объективов
                     if (lensPresets.size > 1) {
                         Row(
                             modifier = Modifier
@@ -357,7 +383,7 @@ class CameraActivity : ComponentActivity() {
                         }
                     }
 
-                    // Кнопка принудительной активации ночного режима (строго над переворотом камеры)
+                    // Кнопка ночного режима
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -400,7 +426,7 @@ class CameraActivity : ComponentActivity() {
                     }
                 }
 
-                // Нижний ряд: [Пустой спейсер] — [Затвор по центру] — [Переворот камеры]
+                // Нижний ряд: [Спейсер] — [Затвор] — [Переворот камеры]
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -417,10 +443,14 @@ class CameraActivity : ComponentActivity() {
                             .border(4.dp, monetAccent, CircleShape)
                             .padding(6.dp)
                             .background(monetAccent, CircleShape)
-                            .clickable { takePhoto(imageCapture, onImageCaptured, onError) }
+                            .clickable {
+                                currentImageCapture?.let { capture ->
+                                    takePhoto(capture, onImageCaptured, onError)
+                                }
+                            }
                     )
 
-                    // Переворот камеры тыл/фронт
+                    // Переворот камеры
                     Box(
                         modifier = Modifier
                             .size(48.dp)
