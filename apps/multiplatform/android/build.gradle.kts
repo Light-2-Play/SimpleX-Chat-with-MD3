@@ -190,6 +190,12 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     //androidTestImplementation("androidx.compose.ui:ui-test-junit4:$compose_version")
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.4")
+
+    def camerax_version = "1.3.4"
+    implementation "androidx.camera:camera-core:${camerax_version}"
+    implementation "androidx.camera:camera-camera2:${camerax_version}"
+    implementation "androidx.camera:camera-lifecycle:${camerax_version}"
+    implementation "androidx.camera:camera-view:${camerax_version}"
 }
 
 tasks {
