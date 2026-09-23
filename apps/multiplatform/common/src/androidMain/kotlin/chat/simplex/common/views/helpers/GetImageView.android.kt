@@ -49,8 +49,9 @@ class CustomTakePicturePreview(var uri: Uri?, var tmpFile: File?): ActivityResul
     tmpFile?.deleteOnExit()
     ChatModel.filesToDelete.add(tmpFile!!)
     uri = FileProvider.getUriForFile(context, "$APPLICATION_ID.provider", tmpFile!!)
-    return Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-      .putExtra(MediaStore.EXTRA_OUTPUT, uri)
+return Intent(context, Class.forName("chat.simplex.app.CameraActivity"))
+    .putExtra(MediaStore.EXTRA_OUTPUT, uri)
+    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
   }
 
   override fun getSynchronousResult(
