@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -11,21 +12,25 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -39,7 +44,6 @@ class CameraActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private var outputUri: Uri? = null
 
-    // 1. Системный запрос разрешений, если их ещё нет
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -54,7 +58,6 @@ class CameraActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 2. Получаем Uri для сохранения (тот самый tmpFile от SimpleX)
         outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT)
 
         if (outputUri == null) {
@@ -81,12 +84,11 @@ class CameraActivity : ComponentActivity() {
         setContent {
             CameraScreen(
                 onImageCaptured = {
-                    // Возвращаем RESULT_OK, SimpleX сам отправит готовый файл
                     setResult(Activity.RESULT_OK)
                     finish()
                 },
                 onError = { exc ->
-                    Log.e("CameraActivity", "Ошибка захвата фото", exc)
+                    Log.e("CameraActivity", "Capture error", exc)
                     setResult(Activity.RESULT_CANCELED)
                     finish()
                 },
@@ -109,6 +111,31 @@ class CameraActivity : ComponentActivity() {
 
         var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
         val imageCapture = remember { ImageCapture.Builder().build() }
+
+        // Токены палитры Monet с фоллбэком на нейтральные цвета для Android ниже 12
+        val monetAccent = remember(context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Color(ContextCompat.getColor(context, android.R.color.system_accent1_200))
+            } else {
+                Color.White
+            }
+        }
+
+        val monetAccentSoft = remember(context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Color(ContextCompat.getColor(context, android.R.color.system_accent1_100))
+            } else {
+                Color.White
+            }
+        }
+
+        val monetButtonBg = remember(context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Color(ContextCompat.getColor(context, android.R.color.system_neutral1_900)).copy(alpha = 0.6f)
+            } else {
+                Color.Black.copy(alpha = 0.6f)
+            }
+        }
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(
@@ -135,14 +162,13 @@ class CameraActivity : ComponentActivity() {
                             cameraProvider.unbindAll()
                             cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
                         } catch (e: Exception) {
-                            Log.e("CameraActivity", "Сбой привязки камеры", e)
+                            Log.e("CameraActivity", "Camera bind error", e)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 
                     previewView
                 },
                 update = { previewView ->
-                    // Перепривязка сенсора при нажатии на смену камеры (фронт/тыл)
                     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
                     cameraProviderFuture.addListener({
                         val cameraProvider = cameraProviderFuture.get()
@@ -157,24 +183,30 @@ class CameraActivity : ComponentActivity() {
                             cameraProvider.unbindAll()
                             cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
                         } catch (e: Exception) {
-                            Log.e("CameraActivity", "Сбой переключения", e)
+                            Log.e("CameraActivity", "Camera switch error", e)
                         }
                     }, ContextCompat.getMainExecutor(context))
                 }
             )
 
-            // Кнопка "Закрыть"
-            IconButton(
-                onClick = onClose,
+            // Кнопка закрытия (Monet фон + крестик в тоне Accent 100)
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(top = 48.dp, start = 16.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    .size(44.dp)
+                    .background(monetButtonBg, CircleShape)
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Закрыть", tint = Color.White)
+                Canvas(modifier = Modifier.size(16.dp)) {
+                    val stroke = 2.5f.dp.toPx()
+                    drawLine(monetAccentSoft, Offset(0f, 0f), Offset(size.width, size.height), stroke, StrokeCap.Round)
+                    drawLine(monetAccentSoft, Offset(size.width, 0f), Offset(0f, size.height), stroke, StrokeCap.Round)
+                }
             }
 
-            // Нижняя панель (спуск и переключение)
+            // Нижняя панель управления
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -185,23 +217,39 @@ class CameraActivity : ComponentActivity() {
             ) {
                 Spacer(modifier = Modifier.size(48.dp))
 
-                // Затвор
-                IconButton(
-                    onClick = { takePhoto(imageCapture, onImageCaptured, onError) },
-                    modifier = Modifier.size(76.dp).background(Color.White, CircleShape)
-                ) {
-                    Box(modifier = Modifier.size(64.dp).background(Color.White, CircleShape))
-                }
+                // Кнопка спуска (внешняя рамка и заливка в основном акцентном тоне Monet 200)
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .border(4.dp, monetAccent, CircleShape)
+                        .padding(6.dp)
+                        .background(monetAccent, CircleShape)
+                        .clickable { takePhoto(imageCapture, onImageCaptured, onError) }
+                )
 
-                // Переключение камеры
-                IconButton(
-                    onClick = {
-                        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-                    },
-                    modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                // Кнопка переворота камеры (Monet фон + дуга в тоне Accent 100)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(monetButtonBg, CircleShape)
+                        .clickable {
+                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                CameraSelector.LENS_FACING_FRONT
+                            } else {
+                                CameraSelector.LENS_FACING_BACK
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Используем иконку Refresh вместо FlipCameraAndroid, так как она гарантированно есть в базовом пакете Material
-                    Icon(Icons.Default.Refresh, contentDescription = "Перевернуть", tint = Color.White)
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        drawArc(
+                            color = monetAccentSoft,
+                            startAngle = 0f,
+                            sweepAngle = 280f,
+                            useCenter = false,
+                            style = Stroke(width = 2.5f.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
                 }
             }
         }
@@ -213,8 +261,6 @@ class CameraActivity : ComponentActivity() {
         onError: (ImageCaptureException) -> Unit
     ) {
         val uri = outputUri ?: return
-        
-        // 3. Открываем поток записи ровно по тому Uri, который нам дал SimpleX
         val outputStream = contentResolver.openOutputStream(uri) ?: return
         val outputOptions = ImageCapture.OutputFileOptions.Builder(outputStream).build()
 
@@ -227,7 +273,6 @@ class CameraActivity : ComponentActivity() {
                 }
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    // Возвращаемся в главный поток для закрытия Activity
                     runOnUiThread { onSuccess() }
                 }
             }
