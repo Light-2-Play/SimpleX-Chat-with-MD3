@@ -12,28 +12,42 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.extensions.ExtensionMode
+import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import java.util.concurrent.ExecutorService
@@ -110,9 +124,22 @@ class CameraActivity : ComponentActivity() {
         val lifecycleOwner = LocalLifecycleOwner.current
 
         var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
-        val imageCapture = remember { ImageCapture.Builder().build() }
+        var isNightSightActive by remember { mutableStateOf(false) }
+        var isNightSightSupported by remember { mutableStateOf(false) }
 
-        // Токены палитры Monet с фоллбэком на нейтральные цвета для Android ниже 12
+        var currentCamera by remember { mutableStateOf<Camera?>(null) }
+        var minZoomRatio by remember { mutableStateOf(1.0f) }
+        var maxZoomRatio by remember { mutableStateOf(1.0f) }
+        var currentZoomRatio by remember { mutableStateOf(1.0f) }
+
+        // Кадр 4:3 на уровне CameraX
+        val imageCapture = remember {
+            ImageCapture.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .build()
+        }
+
+        // Динамические токены Monet
         val monetAccent = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 Color(ContextCompat.getColor(context, android.R.color.system_accent1_200))
@@ -131,124 +158,277 @@ class CameraActivity : ComponentActivity() {
 
         val monetButtonBg = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Color(ContextCompat.getColor(context, android.R.color.system_neutral1_900)).copy(alpha = 0.6f)
+                Color(ContextCompat.getColor(context, android.R.color.system_neutral1_900)).copy(alpha = 0.65f)
             } else {
-                Color.Black.copy(alpha = 0.6f)
+                Color.Black.copy(alpha = 0.65f)
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
+        fun bindCamera(previewView: PreviewView) {
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+            val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context)
+
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                extensionsManagerFuture.addListener({
+                    val extensionsManager = extensionsManagerFuture.get()
+
+                    val baseSelector = CameraSelector.Builder()
+                        .requireLensFacing(lensFacing)
+                        .build()
+
+                    val nightAvailable = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
+                    isNightSightSupported = nightAvailable
+
+                    val finalSelector = if (isNightSightActive && nightAvailable) {
+                        extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
+                    } else {
+                        baseSelector
                     }
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
 
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also {
+                    // Поток превью 4:3
+                    val preview = Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .build().also {
                             it.setSurfaceProvider(previewView.surfaceProvider)
                         }
-                        val cameraSelector = CameraSelector.Builder()
-                            .requireLensFacing(lensFacing)
-                            .build()
 
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
-                        } catch (e: Exception) {
-                            Log.e("CameraActivity", "Camera bind error", e)
-                        }
-                    }, ContextCompat.getMainExecutor(ctx))
+                    try {
+                        cameraProvider.unbindAll()
+                        val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
+                        currentCamera = camera
 
-                    previewView
-                },
-                update = { previewView ->
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        camera.cameraInfo.zoomState.observe(lifecycleOwner) { zoomState ->
+                            minZoomRatio = zoomState.minZoomRatio
+                            maxZoomRatio = zoomState.maxZoomRatio
+                            currentZoomRatio = zoomState.zoomRatio
                         }
-                        val cameraSelector = CameraSelector.Builder()
-                            .requireLensFacing(lensFacing)
-                            .build()
+                    } catch (e: Exception) {
+                        Log.e("CameraActivity", "Camera bind failed", e)
+                    }
+                }, ContextCompat.getMainExecutor(context))
+            }, ContextCompat.getMainExecutor(context))
+        }
 
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
-                        } catch (e: Exception) {
-                            Log.e("CameraActivity", "Camera switch error", e)
-                        }
-                    }, ContextCompat.getMainExecutor(context))
+        val lensPresets = remember(minZoomRatio, maxZoomRatio, lensFacing) {
+            if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                listOf(1.0f to "1×")
+            } else {
+                val list = mutableListOf<Pair<Float, String>>()
+                if (minZoomRatio <= 0.75f) {
+                    list.add(minZoomRatio to ".5")
                 }
-            )
+                list.add(1.0f to "1×")
+                if (maxZoomRatio >= 2.0f) {
+                    list.add(2.0f to "2×")
+                }
+                if (maxZoomRatio >= 5.0f) {
+                    list.add(5.0f to "5×")
+                }
+                list
+            }
+        }
 
-            // Кнопка закрытия (Monet фон + крестик в тоне Accent 100)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
+
+            // 1. Верхняя панель (Кнопка закрытия)
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 48.dp, start = 16.dp)
-                    .size(44.dp)
-                    .background(monetButtonBg, CircleShape)
-                    .clickable { onClose() },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(top = 44.dp, start = 16.dp, bottom = 12.dp)
             ) {
-                Canvas(modifier = Modifier.size(16.dp)) {
-                    val stroke = 2.5f.dp.toPx()
-                    drawLine(monetAccentSoft, Offset(0f, 0f), Offset(size.width, size.height), stroke, StrokeCap.Round)
-                    drawLine(monetAccentSoft, Offset(size.width, 0f), Offset(0f, size.height), stroke, StrokeCap.Round)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(monetButtonBg, CircleShape)
+                        .clickable { onClose() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.size(16.dp)) {
+                        val stroke = 2.5f.dp.toPx()
+                        drawLine(monetAccentSoft, Offset(0f, 0f), Offset(size.width, size.height), stroke, StrokeCap.Round)
+                        drawLine(monetAccentSoft, Offset(size.width, 0f), Offset(0f, size.height), stroke, StrokeCap.Round)
+                    }
                 }
             }
 
-            // Нижняя панель управления
-            Row(
+            // 2. Окно видоискателя со строгим соотношением 4:3 (3f / 4f) и скруглением
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(modifier = Modifier.size(48.dp))
-
-                // Кнопка спуска (внешняя рамка и заливка в основном акцентном тоне Monet 200)
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .border(4.dp, monetAccent, CircleShape)
-                        .padding(6.dp)
-                        .background(monetAccent, CircleShape)
-                        .clickable { takePhoto(imageCapture, onImageCaptured, onError) }
-                )
-
-                // Кнопка переворота камеры (Monet фон + дуга в тоне Accent 100)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(monetButtonBg, CircleShape)
-                        .clickable {
-                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
-                                CameraSelector.LENS_FACING_FRONT
-                            } else {
-                                CameraSelector.LENS_FACING_BACK
+                    .aspectRatio(3f / 4f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.DarkGray)
+                    .pointerInput(currentCamera, minZoomRatio, maxZoomRatio) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            currentCamera?.let { cam ->
+                                val current = cam.cameraInfo.zoomState.value?.zoomRatio ?: 1.0f
+                                val target = (current * zoom).coerceIn(minZoomRatio, maxZoomRatio)
+                                cam.cameraControl.setZoomRatio(target)
                             }
-                        },
-                    contentAlignment = Alignment.Center
+                        }
+                    }
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        PreviewView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                        }.also {
+                            cachedPreviewView = it
+                            bindCamera(it)
+                        }
+                    },
+                    update = { previewView ->
+                        bindCamera(previewView)
+                    }
+                )
+            }
+
+            // 3. Нижняя панель управления (занимает всё пространство под видоискателем)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Переключатели объективов (.5, 1x, 2x, 5x)
+                if (lensPresets.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .background(monetButtonBg, CircleShape)
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        lensPresets.forEach { (ratio, label) ->
+                            val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
+
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(
+                                        if (isSelected) monetAccent else Color.Transparent,
+                                        CircleShape
+                                    )
+                                    .clickable {
+                                        currentCamera?.cameraControl?.setZoomRatio(ratio)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BasicText(
+                                    text = label,
+                                    style = TextStyle(
+                                        color = if (isSelected) Color.Black else monetAccentSoft,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Нижний ряд: [Луна (Night Sight)] — [Затвор] — [Переворот камеры]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
-                        drawArc(
-                            color = monetAccentSoft,
-                            startAngle = 0f,
-                            sweepAngle = 280f,
-                            useCenter = false,
-                            style = Stroke(width = 2.5f.dp.toPx(), cap = StrokeCap.Round)
-                        )
+                    // Переключатель Night Sight слева
+                    if (isNightSightSupported) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    if (isNightSightActive) monetAccent else monetButtonBg,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    isNightSightActive = !isNightSightActive
+                                    cachedPreviewView?.let { bindCamera(it) }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(modifier = Modifier.size(20.dp)) {
+                                val path = Path().apply {
+                                    moveTo(size.width * 0.75f, size.height * 0.15f)
+                                    cubicTo(
+                                        size.width * 0.35f, size.height * 0.15f,
+                                        size.width * 0.15f, size.height * 0.45f,
+                                        size.width * 0.25f, size.height * 0.85f
+                                    )
+                                    cubicTo(
+                                        size.width * 0.55f, size.height * 1.05f,
+                                        size.width * 0.95f, size.height * 0.85f,
+                                        size.width * 0.95f, size.height * 0.65f
+                                    )
+                                    cubicTo(
+                                        size.width * 0.65f, size.height * 0.70f,
+                                        size.width * 0.55f, size.height * 0.35f,
+                                        size.width * 0.75f, size.height * 0.15f
+                                    )
+                                    close()
+                                }
+                                drawPath(
+                                    path = path,
+                                    color = if (isNightSightActive) Color.Black else monetAccentSoft
+                                )
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.size(48.dp))
+                    }
+
+                    // Кнопка затвора
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .border(4.dp, monetAccent, CircleShape)
+                            .padding(6.dp)
+                            .background(monetAccent, CircleShape)
+                            .clickable { takePhoto(imageCapture, onImageCaptured, onError) }
+                    )
+
+                    // Смена камеры (основная / фронтальная)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(monetButtonBg, CircleShape)
+                            .clickable {
+                                lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                    CameraSelector.LENS_FACING_FRONT
+                                } else {
+                                    CameraSelector.LENS_FACING_BACK
+                                }
+                                cachedPreviewView?.let { bindCamera(it) }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.size(20.dp)) {
+                            drawArc(
+                                color = monetAccentSoft,
+                                startAngle = 0f,
+                                sweepAngle = 280f,
+                                useCenter = false,
+                                style = Stroke(width = 2.5f.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
                     }
                 }
             }
