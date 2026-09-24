@@ -12,6 +12,7 @@ import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import java.io.File
 import java.util.concurrent.Executors
+import androidx.core.content.ContextCompat
 
 class NightCameraManager(
     private val context: Context,
