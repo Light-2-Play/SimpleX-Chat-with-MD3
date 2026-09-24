@@ -249,13 +249,17 @@ class CameraActivity : ComponentActivity() {
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
-                        // Управление экспозицией: безопасный подъем яркости без пересвета
+                        // ВОТ ЭТИХ СТРОК НЕ ХВАТАЛО ДЛЯ КНОПОК .5 / 1× / 2× / 5×:
+                        camera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
+                            minZoomRatio = state.minZoomRatio
+                            maxZoomRatio = state.maxZoomRatio
+                        }
+
+                        // Управление экспозицией:
                         val exposureState = camera.cameraInfo.exposureState
                         if (exposureState.isExposureCompensationSupported) {
                             val range = exposureState.exposureCompensationRange
                             val targetIndex = if (isNightSightActive) {
-                                // 40% от верхнего порога — золотая середина:
-                                // кадр становится заметно светлее, но шум не вылезает за рамки работы шумодава
                                 (range.upper * 0.4f).toInt().coerceIn(range.lower, range.upper)
                             } else {
                                 0
