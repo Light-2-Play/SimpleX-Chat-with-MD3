@@ -129,6 +129,20 @@ actual object AudioPlayer: AudioPlayerInterface {
   override val currentlyPlaying: MutableState<CurrentlyPlayingState?> = mutableStateOf(null)
   private var progressJob: Job? = null
 
+  val playbackSpeed: MutableState<Float> = mutableStateOf(1.0f)
+
+  fun setPlaybackSpeed(speed: Float) {
+    playbackSpeed.value = speed
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+      runCatching {
+        val params = player.playbackParams
+        params.speed = speed
+        params.pitch = 1.0f
+        player.playbackParams = params
+      }
+    }
+  }
+
   // Returns real duration of the track
   private fun start(fileSource: CryptoFile, smallView: Boolean, seek: Int? = null, onProgressUpdate: (position: Int?, state: TrackState) -> Unit): Int? {
     val absoluteFilePath = if (fileSource.isAbsolutePath) fileSource.filePath else getAppFilePath(fileSource.filePath)
@@ -163,6 +177,17 @@ actual object AudioPlayer: AudioPlayerInterface {
     }
     if (seek != null) player.seekTo(seek)
     player.start()
+
+    // Применяем сохранённую скорость к начавшемуся треку
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && playbackSpeed.value != 1.0f) {
+      runCatching {
+        val params = player.playbackParams
+        params.speed = playbackSpeed.value
+        params.pitch = 1.0f
+        player.playbackParams = params
+      }
+    }
+
     currentlyPlaying.value = CurrentlyPlayingState(fileSource, onProgressUpdate, smallView)
     progressJob = CoroutineScope(Dispatchers.Default).launch {
       onProgressUpdate(player.currentPosition, TrackState.PLAYING)
