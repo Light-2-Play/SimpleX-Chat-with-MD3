@@ -402,33 +402,31 @@ class CameraActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             lensPresets.forEach { (ratio, label) ->
-                                val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
+                            val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
 
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .background(
-                                            if (isSelected) monetAccent else Color.Transparent,
-                                            CircleShape
-                                        )
-                                        .clickable {
-                                            currentCamera?.cameraControl?.setZoomRatio(ratio)
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    BasicText(
-                                        text = label,
-                                        style = TextStyle(
-                                            color = if (isSelected) Color.Black else monetAccentSoft,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            textAlign = TextAlign.Center
-                                        )
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(
+                                        if (isSelected) monetAccent else Color.Transparent,
+                                        CircleShape
                                     )
-                                }
+                                    .clickable {
+                                        onSelectLens(ratio)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BasicText(
+                                    text = label,
+                                    style = TextStyle(
+                                        color = if (isSelected) Color.Black else monetAccentSoft,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                )
                             }
                         }
-                    }
 
                     // Кнопка ночного режима
                     Box(
