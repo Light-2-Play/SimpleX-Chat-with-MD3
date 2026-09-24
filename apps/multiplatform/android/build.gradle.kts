@@ -192,13 +192,14 @@ dependencies {
     //androidTestImplementation("androidx.compose.ui:ui-test-junit4:$compose_version")
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.4")
 
-   val cameraxVersion = "1.4.0"
+  val cameraxVersion = "1.4.1"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // Модуль OEM-расширений (ночной режим, HDR, боке)
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
-    implementation("com.google.guava:guava:31.1-android")
 }
 
 tasks {
