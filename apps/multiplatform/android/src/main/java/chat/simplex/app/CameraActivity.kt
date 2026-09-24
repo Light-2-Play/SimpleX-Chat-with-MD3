@@ -180,24 +180,17 @@ class CameraActivity : ComponentActivity() {
                         .requireLensFacing(lensFacing)
                         .build()
 
-                    // Проверяем вендорное расширение Pixel
-                    // 1. Проверяем наличие фирменного ночного режима вендора
-                    // 1. Проверка вендорного расширения (на Pixel вернет false, но оставляем для совместимости с другими смартфонами)
-                    val hasVendorNight = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
-                    // 1. Селектор камеры
                     val finalSelector = baseSelector
 
-                    // 2. Настройка превью (видоискателя)
+                    // 1. Превью видоискателя
                     val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
                     val camera2Preview = Camera2Interop.Extender(previewBuilder)
 
-                    // Включаем оптическую стабилизацию OIS
                     camera2Preview.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
 
-                    // Сглаживаем зерно в видоискателе на лету
                     if (isNightSightActive) {
                         camera2Preview.setCaptureRequestOption(
                             CaptureRequest.NOISE_REDUCTION_MODE,
@@ -209,37 +202,31 @@ class CameraActivity : ComponentActivity() {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                    // 3. Настройка захвата фото (ImageCapture)
+                    // 2. Захват фото
                     val captureBuilder = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
 
                     val camera2Capture = Camera2Interop.Extender(captureBuilder)
 
-                    // Оптический стаб для съёмки (держит выдержку без смазов)
                     camera2Capture.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
 
-                    // При включенном ночном режиме запускаем аппаратные фильтры ISP процессора
                     if (isNightSightActive) {
-                        // Максимальное многопроходное подавление шума
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.NOISE_REDUCTION_MODE,
                             CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
                         )
-                        // Удаление горячих/битых пикселей от нагрева сенсора в темноте
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.HOT_PIXEL_MODE,
                             CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY
                         )
-                        // Сглаживание и умное сохранение резкости контуров
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.EDGE_MODE,
                             CaptureRequest.EDGE_MODE_HIGH_QUALITY
                         )
-                        // Высококачественный тональный маппинг для проявления деталей в тенях
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.TONEMAP_MODE,
                             CaptureRequest.TONEMAP_MODE_HIGH_QUALITY
@@ -254,13 +241,11 @@ class CameraActivity : ComponentActivity() {
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
-                        // ВОТ ЭТИХ СТРОК НЕ ХВАТАЛО ДЛЯ КНОПОК .5 / 1× / 2× / 5×:
                         camera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
                             minZoomRatio = state.minZoomRatio
                             maxZoomRatio = state.maxZoomRatio
                         }
 
-                        // Управление экспозицией:
                         val exposureState = camera.cameraInfo.exposureState
                         if (exposureState.isExposureCompensationSupported) {
                             val range = exposureState.exposureCompensationRange
@@ -297,19 +282,18 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
-       // --- Блок плавной анимации зума ---
+        // --- Плавная анимация зума ---
         val coroutineScope = rememberCoroutineScope()
-        val zoomAnim = remember { androidx.compose.animation.core.Animatable(1.0f) }
+        val zoomAnim = remember { Animatable(1.0f) }
 
-        // Функция плавного переключения
         val onSelectLens: (Float) -> Unit = { targetRatio ->
             currentZoomRatio = targetRatio
             coroutineScope.launch {
                 zoomAnim.animateTo(
                     targetValue = targetRatio,
-                    animationSpec = androidx.compose.animation.core.tween(
+                    animationSpec = tween(
                         durationMillis = 260,
-                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                        easing = FastOutSlowInEasing
                     )
                 ) {
                     currentCamera?.cameraControl?.setZoomRatio(this.value)
@@ -405,35 +389,34 @@ class CameraActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                           lensPresets.forEach { (ratio, label) ->
-                            val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
+                            lensPresets.forEach { (ratio, label) ->
+                                val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
 
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .background(
-                                        if (isSelected) monetAccent else Color.Transparent,
-                                        CircleShape
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .background(
+                                            if (isSelected) monetAccent else Color.Transparent,
+                                            CircleShape
+                                        )
+                                        .clickable {
+                                            onSelectLens(ratio)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BasicText(
+                                        text = label,
+                                        style = TextStyle(
+                                            color = if (isSelected) Color.Black else monetAccentSoft,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            textAlign = TextAlign.Center
+                                        )
                                     )
-                                    .clickable {
-                                        onSelectLens(ratio)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BasicText(
-                                    text = label,
-                                    style = TextStyle(
-                                        color = if (isSelected) Color.Black else monetAccentSoft,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        textAlign = TextAlign.Center
-                                    )
-                                )
+                                }
                             }
                         }
                     }
-                }
-            }
 
                     // Кнопка ночного режима
                     Box(
