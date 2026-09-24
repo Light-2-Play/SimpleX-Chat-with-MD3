@@ -13,25 +13,6 @@ object SoundPlayer: SoundPlayerInterface {
   private var player: MediaPlayer? = null
   private var playing = false
 
-  var currentSpeed: Float = 1.0f
-        private set
-
-    fun setPlaybackSpeed(speed: Float) {
-        currentSpeed = speed
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            try {
-                player?.let { p ->
-                    if (playing) {
-                        val params = p.playbackParams
-                        params.speed = speed
-                        params.pitch = 1.0f // сохраняем естественный тембр голоса
-                        p.playbackParams = params
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-    }
-
   override fun start(scope: CoroutineScope, sound: Boolean) {
     player?.reset()
     player = MediaPlayer().apply {
