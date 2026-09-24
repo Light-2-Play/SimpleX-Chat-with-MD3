@@ -201,6 +201,12 @@ class CameraActivity : ComponentActivity() {
                         .build()
                     currentImageCapture = imageCapture
 
+                    android.widget.Toast.makeText(
+    this@CameraActivity,
+    "Поддержка вендора: $hasVendorNight | Ночь вкл: $isNightSightActive",
+    android.widget.Toast.LENGTH_LONG
+).show()
+                    
                     try {
                         cameraProvider.unbindAll()
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
