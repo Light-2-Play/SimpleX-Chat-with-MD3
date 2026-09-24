@@ -297,9 +297,8 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
-        // --- Блок плавной анимации зума ---
+       // --- Блок плавной анимации зума ---
         val coroutineScope = rememberCoroutineScope()
-        var currentZoomRatio by remember { mutableStateOf(1.0f) }
         val zoomAnim = remember { androidx.compose.animation.core.Animatable(1.0f) }
 
         // Функция плавного переключения
@@ -406,7 +405,7 @@ class CameraActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            lensPresets.forEach { (ratio, label) ->
+                           lensPresets.forEach { (ratio, label) ->
                             val isSelected = kotlin.math.abs(currentZoomRatio - ratio) < 0.25f
 
                             Box(
@@ -432,6 +431,9 @@ class CameraActivity : ComponentActivity() {
                                 )
                             }
                         }
+                    }
+                }
+            }
 
                     // Кнопка ночного режима
                     Box(
