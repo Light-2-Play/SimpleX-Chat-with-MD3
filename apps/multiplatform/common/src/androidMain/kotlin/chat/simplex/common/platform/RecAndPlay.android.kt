@@ -129,9 +129,9 @@ actual object AudioPlayer: AudioPlayerInterface {
   override val currentlyPlaying: MutableState<CurrentlyPlayingState?> = mutableStateOf(null)
   private var progressJob: Job? = null
 
-  val playbackSpeed: MutableState<Float> = mutableStateOf(1.0f)
+ override val playbackSpeed: MutableState<Float> = mutableStateOf(1.0f)
 
-  fun setPlaybackSpeed(speed: Float) {
+  override fun setPlaybackSpeed(speed: Float) {
     playbackSpeed.value = speed
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
       runCatching {
