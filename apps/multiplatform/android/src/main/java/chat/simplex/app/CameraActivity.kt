@@ -292,6 +292,27 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
+        // --- Блок плавной анимации зума ---
+        val coroutineScope = rememberCoroutineScope()
+        var currentZoomRatio by remember { mutableStateOf(1.0f) }
+        val zoomAnim = remember { androidx.compose.animation.core.Animatable(1.0f) }
+
+        // Функция плавного переключения
+        val onSelectLens: (Float) -> Unit = { targetRatio ->
+            currentZoomRatio = targetRatio
+            coroutineScope.launch {
+                zoomAnim.animateTo(
+                    targetValue = targetRatio,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = 260,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                ) {
+                    currentCamera?.cameraControl?.setZoomRatio(this.value)
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
