@@ -1,6 +1,7 @@
 package chat.simplex.common.platform
 
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import chat.simplex.common.model.*
 import kotlinx.coroutines.CoroutineScope
 
@@ -28,9 +29,8 @@ data class CurrentlyPlayingState(
 
 interface AudioPlayerInterface {
   val currentlyPlaying: MutableState<CurrentlyPlayingState?>
-  
-  // Добавляем поддержку скорости с дефолтной реализацией (чтобы не ломать сборку под iOS/Desktop)
-  val playbackSpeed: State<Float> get() = mutableStateOf(1.0f)
+
+  val playbackSpeed: MutableState<Float> get() = mutableStateOf(1.0f)
   fun setPlaybackSpeed(speed: Float) {}
 
   fun play(
