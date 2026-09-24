@@ -176,49 +176,29 @@ class CameraActivity : ComponentActivity() {
                         .build()
 
                     // Проверяем вендорное расширение Pixel
+                    // 1. Проверяем наличие фирменного ночного режима вендора
                     val hasVendorNight = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
+
+                    // 2. Если включен ночной режим и устройство его поддерживает — активируем нативный селектор
                     val finalSelector = if (isNightSightActive && hasVendorNight) {
                         extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
                     } else {
                         baseSelector
                     }
 
-                    // 1. Настройка превью 4:3 с внедрением Camera2 Night Scene
-                    val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                    if (isNightSightActive && !hasVendorNight) {
-                        val camera2Preview = Camera2Interop.Extender(previewBuilder)
-                        camera2Preview.setCaptureRequestOption(
-                            CaptureRequest.CONTROL_MODE,
-                            CameraMetadata.CONTROL_MODE_USE_SCENE_MODE
-                        )
-                        camera2Preview.setCaptureRequestOption(
-                            CaptureRequest.CONTROL_SCENE_MODE,
-                            CameraMetadata.CONTROL_SCENE_MODE_NIGHT
-                        )
-                    }
+                    // 3. Настройка превью без Camera2Interop (ночной стек сам управляет видоискателем)
+                    val preview = Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .build()
+                        .also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
 
-                    val preview = previewBuilder.build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
-
-                    // 2. Настройка захвата фото с принудительным MAXIMIZE_QUALITY (многокадровая склейка HDR+)
-                    val captureBuilder = ImageCapture.Builder()
+                    // 4. Настройка захвата: максимальное качество для запуска многокадровой склейки
+                    val imageCapture = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-
-                    if (isNightSightActive && !hasVendorNight) {
-                        val camera2Capture = Camera2Interop.Extender(captureBuilder)
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.CONTROL_MODE,
-                            CameraMetadata.CONTROL_MODE_USE_SCENE_MODE
-                        )
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.CONTROL_SCENE_MODE,
-                            CameraMetadata.CONTROL_SCENE_MODE_NIGHT
-                        )
-                    }
-
-                    val imageCapture = captureBuilder.build()
+                        .build()
                     currentImageCapture = imageCapture
 
                     try {
@@ -226,23 +206,20 @@ class CameraActivity : ComponentActivity() {
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
-                        // Управление экспозицией: сразу осветляем видоискатель в ночном режиме
+                        // Сбрасываем экспозицию в 0 — фирменный ночной режим сам выставит выдержку и ISO
                         val exposureState = camera.cameraInfo.exposureState
                         if (exposureState.isExposureCompensationSupported) {
-                            val targetIndex = if (isNightSightActive) {
-                                (exposureState.exposureCompensationRange.upper * 0.7f).toInt()
-                            } else {
-                                0
-                            }
-                            camera.cameraControl.setExposureCompensationIndex(targetIndex)
+                            camera.cameraControl.setExposureCompensationIndex(0)
                         }
 
                         camera.cameraInfo.zoomState.observe(lifecycleOwner) { zoomState ->
                             minZoomRatio = zoomState.minZoomRatio
                             maxZoomRatio = zoomState.maxZoomRatio
                             currentZoomRatio = zoomState.zoomRatio
-                        }
-                    } catch (_: Exception) {}
+                       }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }, ContextCompat.getMainExecutor(context))
             }, ContextCompat.getMainExecutor(context))
         }
