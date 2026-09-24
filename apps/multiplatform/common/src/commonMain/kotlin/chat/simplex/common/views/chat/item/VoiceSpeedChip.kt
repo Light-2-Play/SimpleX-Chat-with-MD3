@@ -29,7 +29,7 @@ fun VoiceSpeedChip(
     val speeds = listOf(1.0f, 1.5f, 2.0f)
     val isBoosted = currentSpeed > 1.0f
 
-    // При ускорении загорается Monet Primary, в обычном режиме — нейтральный тон
+    // Берем цвета темы Material (в вашем форке они автоматически берут системные цвета Monet)
     val chipBg = if (isBoosted) {
         MaterialTheme.colors.primary
     } else {
