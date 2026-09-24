@@ -177,47 +177,87 @@ class CameraActivity : ComponentActivity() {
 
                     // Проверяем вендорное расширение Pixel
                     // 1. Проверяем наличие фирменного ночного режима вендора
+                    // 1. Проверка вендорного расширения (на Pixel вернет false, но оставляем для совместимости с другими смартфонами)
                     val hasVendorNight = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
-
-                    // 2. Если включен ночной режим и устройство его поддерживает — активируем нативный селектор
                     val finalSelector = if (isNightSightActive && hasVendorNight) {
                         extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
                     } else {
                         baseSelector
                     }
 
-                    // 3. Настройка превью без Camera2Interop (ночной стек сам управляет видоискателем)
-                    val preview = Preview.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .build()
-                        .also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
+                    // 2. Настройка видоискателя
+                    val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    
+                    // Включаем аппаратную оптическую стабилизацию (OIS) в превью, чтобы видоискатель не дрожал в темноте
+                    val camera2Preview = Camera2Interop.Extender(previewBuilder)
+                    camera2Preview.setCaptureRequestOption(
+                        CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                        CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+                    )
 
-                    // 4. Настройка захвата: максимальное качество для запуска многокадровой склейки
-                    val imageCapture = ImageCapture.Builder()
+                    val preview = previewBuilder.build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    // 3. Настройка захвата фото с профилем максимального качества
+                    val captureBuilder = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                        .build()
+
+                    val camera2Capture = Camera2Interop.Extender(captureBuilder)
+
+                    // Включаем OIS для фото — позволяет матрице держать длинную выдержку без смаза от рук
+                    camera2Capture.setCaptureRequestOption(
+                        CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                        CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+                    )
+
+                    // Если ночной режим активен, переводим процессор обработки (ISP) в максимальный студийный режим
+                    if (isNightSightActive) {
+                        // Аппаратное многопроходное шумоподавление
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.NOISE_REDUCTION_MODE,
+                            CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
+                        )
+                        // Чёткие грани объектов без цветных ореолов
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.EDGE_MODE,
+                            CaptureRequest.EDGE_MODE_HIGH_QUALITY
+                        )
+                        // Очистка горячих пикселей от нагрева сенсора при нехватке света
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.HOT_PIXEL_MODE,
+                            CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY
+                        )
+                        // Качественный тональный маппинг для проявления теней
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.TONEMAP_MODE,
+                            CaptureRequest.TONEMAP_MODE_HIGH_QUALITY
+                        )
+                    }
+
+                    val imageCapture = captureBuilder.build()
                     currentImageCapture = imageCapture
 
-                    android.widget.Toast.makeText(
-    this@CameraActivity,
-    "Поддержка вендора: $hasVendorNight | Ночь вкл: $isNightSightActive",
-    android.widget.Toast.LENGTH_LONG
-).show()
-                    
                     try {
                         cameraProvider.unbindAll()
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
-                        // Сбрасываем экспозицию в 0 — фирменный ночной режим сам выставит выдержку и ISO
+                        // Убираем убийственное задирание экспозиции на 70%, которое создавало радужный шум.
+                        // Даем аккуратную естественную прибавку (~2 шага компенсации, около +0.7 EV),
+                        // а работу со светом оставляем длинной выдержке и оптическому стабу.
                         val exposureState = camera.cameraInfo.exposureState
                         if (exposureState.isExposureCompensationSupported) {
-                            camera.cameraControl.setExposureCompensationIndex(0)
+                            val range = exposureState.exposureCompensationRange
+                            val targetIndex = if (isNightSightActive) {
+                                2.coerceIn(range.lower, range.upper)
+                            } else {
+                                0
+                            }
+                            camera.cameraControl.setExposureCompensationIndex(targetIndex)
                         }
-
+                        
                         camera.cameraInfo.zoomState.observe(lifecycleOwner) { zoomState ->
                             minZoomRatio = zoomState.minZoomRatio
                             maxZoomRatio = zoomState.maxZoomRatio
