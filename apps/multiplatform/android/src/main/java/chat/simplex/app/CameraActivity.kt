@@ -179,57 +179,62 @@ class CameraActivity : ComponentActivity() {
                     // 1. Проверяем наличие фирменного ночного режима вендора
                     // 1. Проверка вендорного расширения (на Pixel вернет false, но оставляем для совместимости с другими смартфонами)
                     val hasVendorNight = extensionsManager.isExtensionAvailable(baseSelector, ExtensionMode.NIGHT)
-                    val finalSelector = if (isNightSightActive && hasVendorNight) {
-                        extensionsManager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.NIGHT)
-                    } else {
-                        baseSelector
-                    }
+                    // 1. Селектор камеры
+                    val finalSelector = baseSelector
 
-                    // 2. Настройка видоискателя
+                    // 2. Настройка превью (видоискателя)
                     val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                    
-                    // Включаем аппаратную оптическую стабилизацию (OIS) в превью, чтобы видоискатель не дрожал в темноте
                     val camera2Preview = Camera2Interop.Extender(previewBuilder)
+
+                    // Включаем оптическую стабилизацию OIS
                     camera2Preview.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
 
+                    // Сглаживаем зерно в видоискателе на лету
+                    if (isNightSightActive) {
+                        camera2Preview.setCaptureRequestOption(
+                            CaptureRequest.NOISE_REDUCTION_MODE,
+                            CaptureRequest.NOISE_REDUCTION_MODE_FAST
+                        )
+                    }
+
                     val preview = previewBuilder.build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                    // 3. Настройка захвата фото с профилем максимального качества
+                    // 3. Настройка захвата фото (ImageCapture)
                     val captureBuilder = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
 
                     val camera2Capture = Camera2Interop.Extender(captureBuilder)
 
-                    // Включаем OIS для фото — позволяет матрице держать длинную выдержку без смаза от рук
+                    // Оптический стаб для съёмки (держит выдержку без смазов)
                     camera2Capture.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
 
-                    // Если ночной режим активен, переводим процессор обработки (ISP) в максимальный студийный режим
+                    // При включенном ночном режиме запускаем аппаратные фильтры ISP процессора
                     if (isNightSightActive) {
-                        // Аппаратное многопроходное шумоподавление
+                        // Максимальное многопроходное подавление шума
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.NOISE_REDUCTION_MODE,
                             CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
                         )
-                        // Чёткие грани объектов без цветных ореолов
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.EDGE_MODE,
-                            CaptureRequest.EDGE_MODE_HIGH_QUALITY
-                        )
-                        // Очистка горячих пикселей от нагрева сенсора при нехватке света
+                        // Удаление горячих/битых пикселей от нагрева сенсора в темноте
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.HOT_PIXEL_MODE,
                             CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY
                         )
-                        // Качественный тональный маппинг для проявления теней
+                        // Сглаживание и умное сохранение резкости контуров
+                        camera2Capture.setCaptureRequestOption(
+                            CaptureRequest.EDGE_MODE,
+                            CaptureRequest.EDGE_MODE_HIGH_QUALITY
+                        )
+                        // Высококачественный тональный маппинг для проявления деталей в тенях
                         camera2Capture.setCaptureRequestOption(
                             CaptureRequest.TONEMAP_MODE,
                             CaptureRequest.TONEMAP_MODE_HIGH_QUALITY
@@ -244,25 +249,19 @@ class CameraActivity : ComponentActivity() {
                         val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
                         currentCamera = camera
 
-                        // Убираем убийственное задирание экспозиции на 70%, которое создавало радужный шум.
-                        // Даем аккуратную естественную прибавку (~2 шага компенсации, около +0.7 EV),
-                        // а работу со светом оставляем длинной выдержке и оптическому стабу.
+                        // Управление экспозицией: безопасный подъем яркости без пересвета
                         val exposureState = camera.cameraInfo.exposureState
                         if (exposureState.isExposureCompensationSupported) {
                             val range = exposureState.exposureCompensationRange
                             val targetIndex = if (isNightSightActive) {
-                                2.coerceIn(range.lower, range.upper)
+                                // 40% от верхнего порога — золотая середина:
+                                // кадр становится заметно светлее, но шум не вылезает за рамки работы шумодава
+                                (range.upper * 0.4f).toInt().coerceIn(range.lower, range.upper)
                             } else {
                                 0
                             }
                             camera.cameraControl.setExposureCompensationIndex(targetIndex)
                         }
-                        
-                        camera.cameraInfo.zoomState.observe(lifecycleOwner) { zoomState ->
-                            minZoomRatio = zoomState.minZoomRatio
-                            maxZoomRatio = zoomState.maxZoomRatio
-                            currentZoomRatio = zoomState.zoomRatio
-                       }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
