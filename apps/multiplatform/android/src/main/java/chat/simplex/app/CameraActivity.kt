@@ -56,7 +56,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import chat.simplex.common.camera.NightCameraScreen
 
 class CameraActivity : ComponentActivity() {
 
@@ -99,28 +98,15 @@ class CameraActivity : ComponentActivity() {
         cameraExecutor.shutdown()
     }
 
-   private fun startCameraUI() {
-        val targetUri = outputUri ?: run {
-            setResult(Activity.RESULT_CANCELED)
-            finish()
-            return
-        }
-
+    private fun startCameraUI() {
         setContent {
-            NightCameraScreen(
-                onPhotoCaptured = { photoFile ->
-                    try {
-                        contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                            photoFile.inputStream().use { inputStream ->
-                                inputStream.copyTo(outputStream)
-                            }
-                        }
-                        photoFile.delete()
-                        setResult(Activity.RESULT_OK)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        setResult(Activity.RESULT_CANCELED)
-                    }
+            CameraScreen(
+                onImageCaptured = {
+                    setResult(Activity.RESULT_OK)
+                    finish()
+                },
+                onError = {
+                    setResult(Activity.RESULT_CANCELED)
                     finish()
                 },
                 onClose = {
@@ -130,7 +116,6 @@ class CameraActivity : ComponentActivity() {
             )
         }
     }
-}
 
     @Composable
     private fun CameraScreen(
