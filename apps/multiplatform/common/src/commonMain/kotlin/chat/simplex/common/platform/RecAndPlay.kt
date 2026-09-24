@@ -28,6 +28,11 @@ data class CurrentlyPlayingState(
 
 interface AudioPlayerInterface {
   val currentlyPlaying: MutableState<CurrentlyPlayingState?>
+  
+  // Добавляем поддержку скорости с дефолтной реализацией (чтобы не ломать сборку под iOS/Desktop)
+  val playbackSpeed: State<Float> get() = mutableStateOf(1.0f)
+  fun setPlaybackSpeed(speed: Float) {}
+
   fun play(
     fileSource: CryptoFile,
     audioPlaying: MutableState<Boolean>,
@@ -36,6 +41,7 @@ interface AudioPlayerInterface {
     resetOnEnd: Boolean,
     smallView: Boolean,
   )
+  // ... остальные методы
   fun stop()
   fun stop(item: ChatItem)
   fun stop(fileName: String?)
