@@ -21,10 +21,8 @@ object SingBoxService {
   private var process: Process? = null
 
   private val SUBSCRIPTION_URLS = listOf(
-    "https://cdn.jsdelivr.net/gh/Au1rxx/free-vpn-subscriptions@main/output/singbox.json",
     "https://github.com/Au1rxx/free-vpn-subscriptions/raw/main/output/singbox.json",
     "https://cdn.jsdelivr.net/gh/awesome-vpn/awesome-vpn@master/sing-box.json",
-    "https://cdn.jsdelivr.net/gh/0xRadikal/Free-v2ray-Configs@main/verified/singbox.json",
         "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/verified/singbox.json"
   )
 
