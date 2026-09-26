@@ -173,7 +173,7 @@ class CameraActivity : ComponentActivity() {
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
         // Сохраняем ссылку на View камеры
-        var previewViewInstance by remember { mutableStateOf<PreviewView?>(null) }
+var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
 
         // Токены темы Monet
         val monetAccent = remember(context) {
