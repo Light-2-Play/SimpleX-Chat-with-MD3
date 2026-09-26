@@ -61,14 +61,9 @@ return Intent(context, Class.forName("chat.simplex.app.CameraActivity"))
 
   override fun parseResult(resultCode: Int, intent: Intent?): Uri? {
     return if (resultCode == Activity.RESULT_OK) {
-      // Если камера вернула готовый файл (наше видео .mp4) — берем его!
-      // Если нет — берем стандартный uri для фото
-      intent?.data ?: uri
-    } else {
-      Log.e(TAG, "Getting image from camera cancelled or failed.")
-      null
-    }
-  }
+        intent?.data ?: uri // Приоритет отдается видеофайлу из CameraActivity!
+    } else null
+}
 
   companion object {
     fun saver(): Saver<CustomTakePicturePreview, *> = Saver(
