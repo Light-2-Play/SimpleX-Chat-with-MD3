@@ -33,6 +33,7 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
+import androidx.camera.video.FallbackStrategy
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -187,54 +188,58 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
-        var recordingStartTime by remember { mutableStateOf(0L) }
+        // --- Переменные для видео и таймера ---
+      // Переменные для таймера записи
+        var recordingTimeSeconds by remember { mutableStateOf(0) }
 
-        // Логика записи видео
         fun startVideoRecording(videoCapture: VideoCapture<Recorder>) {
-            // Создаем временный mp4-файл
-            val tempVideoFile = File(context.cacheDir, "temp_simplex_video.mp4")
-            if (tempVideoFile.exists()) tempVideoFile.delete()
+            // Создаем честный отдельный .mp4 файл в кэше
+            val videoFile = File(context.cacheDir, "VID_${System.currentTimeMillis()}.mp4")
+            val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
-            val outputOptions = FileOutputOptions.Builder(tempVideoFile).build()
             var pending = videoCapture.output.prepareRecording(context, outputOptions)
-
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                 pending = pending.withAudioEnabled()
             }
-
-            recordingStartTime = System.currentTimeMillis()
 
             activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
                         isRecordingVideo = true
                     }
+                    is VideoRecordEvent.Status -> {
+                        val durationSec = (event.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
+                        recordingTimeSeconds = durationSec
+                        // Лимит 2 минуты (120 секунд)
+                        if (durationSec >= 120) {
+                            stopVideoRecording()
+                        }
+                    }
                     is VideoRecordEvent.Finalize -> {
                         isRecordingVideo = false
+                        recordingTimeSeconds = 0
                         if (!event.hasError()) {
-                            outputUri?.let { destUri ->
-                                try {
-                                    // 1. Копируем записанный mp4 в outputUri
-                                    context.contentResolver.openOutputStream(destUri, "rwt")?.use { out ->
-                                        FileInputStream(tempVideoFile).use { input ->
-                                            input.copyTo(out)
-                                        }
-                                    }
-                                    tempVideoFile.delete()
-
-                                    // 2. Явно сообщаем SimpleX, что файл является видео, а не фото
-                                    val resultIntent = android.content.Intent().apply {
-                                        setDataAndType(destUri, "video/mp4")
-                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    (context as? Activity)?.setResult(Activity.RESULT_OK, resultIntent)
-                                    (context as? Activity)?.finish()
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
+                            val videoUri = try {
+                                androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    videoFile
+                                )
+                            } catch (e: Exception) {
+                                Uri.fromFile(videoFile)
                             }
+
+                            // Возвращаем результат именно как VIDEO
+                            val resultIntent = android.content.Intent().apply {
+                                data = videoUri
+                                putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
+                                putExtra("IS_VIDEO", true)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            (context as? Activity)?.setResult(Activity.RESULT_OK, resultIntent)
+                            (context as? Activity)?.finish()
                         } else {
-                            tempVideoFile.delete()
+                            videoFile.delete()
                         }
                     }
                 }
@@ -242,14 +247,6 @@ class CameraActivity : ComponentActivity() {
         }
 
         fun stopVideoRecording() {
-            val duration = System.currentTimeMillis() - recordingStartTime
-            if (duration < 1000) {
-                // Если запись длилась меньше секунды — отменяем сохранение,
-                // чтобы не писать битый MP4 в файл
-                activeRecording?.stop()
-                activeRecording = null
-                return
-            }
             activeRecording?.stop()
             activeRecording = null
         }
@@ -319,10 +316,21 @@ class CameraActivity : ComponentActivity() {
                     val imageCapture = captureBuilder.build()
                     currentImageCapture = imageCapture
 
-                    // 3. Видеозахват
+                    // Фиксация 30 FPS
+                    val fpsRange = android.util.Range(30, 30)
+                    camera2Preview.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+                    camera2Capture.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+
+                    // 3. Видеозахват (720p HD с отказоустойчивостью)
+                    val qualitySelector = QualitySelector.from(
+                        Quality.HD,
+                        FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)
+                    )
                     val recorder = Recorder.Builder()
-                        .setQualitySelector(QualitySelector.from(Quality.HD))
+                        .setQualitySelector(qualitySelector)
+                        .setExecutor(ContextCompat.getMainExecutor(context))
                         .build()
+
                     val videoCapture = VideoCapture.withOutput(recorder)
                     currentVideoCapture = videoCapture
 
@@ -459,27 +467,31 @@ class CameraActivity : ComponentActivity() {
                     update = {}
                 )
 
-                // Индикатор активной записи видео
+                // ВОТ СЮДА ВСТАВЛЯЕТСЯ ТАЙМЕР:
                 if (isRecordingVideo) {
+                    val minutes = recordingTimeSeconds / 60
+                    val seconds = recordingTimeSeconds % 60
+                    val timeFormatted = String.format("%02d:%02d / 02:00", minutes, seconds)
+
                     Row(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = 16.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(10.dp)
                                 .background(Color.Red, CircleShape)
                         )
                         BasicText(
-                            text = "REC",
+                            text = timeFormatted,
                             style = TextStyle(
                                 color = Color.White,
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         )
