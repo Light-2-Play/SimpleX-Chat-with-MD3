@@ -81,6 +81,9 @@ import java.util.concurrent.Executors
 import android.util.Rational
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class CameraActivity : ComponentActivity() {
 
@@ -172,8 +175,8 @@ class CameraActivity : ComponentActivity() {
         var maxZoomRatio by remember { mutableStateOf(1.0f) }
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
-        // Сохраняем ссылку на View камеры
-var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
+// Вместо: private var cachedPreviewView: PreviewView? = null
+private var cachedPreviewView by mutableStateOf<PreviewView?>(null)
 
         // Токены темы Monet
         val monetAccent = remember(context) {
@@ -228,7 +231,6 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                     is VideoRecordEvent.Status -> {
                         val durationSec = (event.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
                         recordingTimeSeconds = durationSec
-                        // Теперь компилятор знает, что вызывать:
                         if (durationSec >= 120) {
                             stopVideoRecording()
                         }
@@ -237,12 +239,8 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                         isRecordingVideo = false
                         recordingTimeSeconds = 0
                         if (!event.hasError()) {
-                            val authority = "${context.packageName}.provider"
-                            val videoUri = try {
-                                FileProvider.getUriForFile(context, authority, videoFile)
-                            } catch (e: Exception) {
-                                Uri.fromFile(videoFile)
-                            }
+                            // SimpleX работает с видео через прямой путь к файлу на диске
+                            val videoUri = Uri.fromFile(videoFile)
 
                             val resultIntent = Intent().apply {
                                 data = videoUri
@@ -256,9 +254,9 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                             videoFile.delete()
                         }
                     }
-                }
-            }
-        }
+                } // закрывает when (event)
+            } // закрывает pending.start { ... }
+        } // закрывает fun startVideoRecording
 
         fun bindCamera(previewView: PreviewView) {
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -483,7 +481,7 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                         }
                     }
             ) {
-                AndroidView(
+               AndroidView(
     modifier = Modifier.fillMaxSize(),
     factory = { ctx ->
         PreviewView(ctx).apply {
@@ -494,18 +492,14 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
             scaleType = PreviewView.ScaleType.FIT_CENTER
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
 
-            // Гарантируем, что биндинг произойдет только после полной готовности View
-            post {
-                cachedPreviewView = this
-            }
+            // Передаем ссылку СРАЗУ, без post:
+            cachedPreviewView = this
         }
     },
     update = { previewView ->
-        // FIT_CENTER сохраняет честные пропорции без паразитного кропа для 4:3 и 1:1
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
     }
 )
-
                 // ВОТ СЮДА ВСТАВЛЯЕТСЯ ТАЙМЕР:
                 if (isRecordingVideo) {
                     val minutes = recordingTimeSeconds / 60
@@ -766,14 +760,17 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val resultIntent = Intent().apply {
-                        data = uri
-                        putExtra(MediaStore.EXTRA_OUTPUT, uri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    setResult(Activity.RESULT_OK, resultIntent)
-                    runOnUiThread { onSuccess() }
-                }
+    val resultIntent = Intent().apply {
+        data = uri
+        putExtra(MediaStore.EXTRA_OUTPUT, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    setResult(Activity.RESULT_OK, resultIntent)
+    runOnUiThread { 
+        onSuccess()
+        finish() // <--- Закрывает CameraActivity и возвращает управление в чат
+    }
+}
 
                 override fun onError(exc: ImageCaptureException) {
                     runOnUiThread { onError(exc) }
