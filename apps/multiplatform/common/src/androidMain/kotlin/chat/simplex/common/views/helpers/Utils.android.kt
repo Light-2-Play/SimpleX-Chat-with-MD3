@@ -261,7 +261,7 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
   val contentResolver = androidAppContext.contentResolver
   val mimeType = contentResolver.getType(androidUri) ?: ""
 
-  // 1. Если это видео — сразу достаем первый кадр через MediaMetadataRetriever
+  // Если это видео или MP4 — достаем превью-кадр через MediaMetadataRetriever
   if (mimeType.startsWith("video/") || androidUri.toString().endsWith(".mp4", ignoreCase = true)) {
     return try {
       val retriever = android.media.MediaMetadataRetriever()
@@ -275,19 +275,19 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
     }
   }
 
-  // 2. Стандартный пайплайн для фото
+  // Обычный пайплайн для фото
   return if (Build.VERSION.SDK_INT >= 28) {
     try {
       val source = ImageDecoder.createSource(contentResolver, androidUri)
       ImageDecoder.decodeBitmap(source)
     } catch (e: Exception) {
-      // Страховка: если файл без mimeType оказался видео
+      // Страховка: если у видео не было MIME-типа, пробуем достать кадр перед показом ошибки
       try {
         val retriever = android.media.MediaMetadataRetriever()
         retriever.setDataSource(androidAppContext, androidUri)
         val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
         retriever.release()
-        frame
+        frame?.asImageBitmap()
       } catch (videoEx: Exception) {
         Log.e(TAG, "Unable to decode the image: ${e.stackTraceToString()}")
         if (withAlertOnException) showImageDecodingException()
