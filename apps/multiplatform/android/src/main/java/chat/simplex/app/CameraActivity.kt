@@ -187,8 +187,11 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
+        var recordingStartTime by remember { mutableStateOf(0L) }
+
         // Логика записи видео
         fun startVideoRecording(videoCapture: VideoCapture<Recorder>) {
+            // Создаем временный mp4-файл
             val tempVideoFile = File(context.cacheDir, "temp_simplex_video.mp4")
             if (tempVideoFile.exists()) tempVideoFile.delete()
 
@@ -198,6 +201,8 @@ class CameraActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                 pending = pending.withAudioEnabled()
             }
+
+            recordingStartTime = System.currentTimeMillis()
 
             activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
                 when (event) {
@@ -209,13 +214,21 @@ class CameraActivity : ComponentActivity() {
                         if (!event.hasError()) {
                             outputUri?.let { destUri ->
                                 try {
-                                    context.contentResolver.openOutputStream(destUri)?.use { out ->
+                                    // 1. Копируем записанный mp4 в outputUri
+                                    context.contentResolver.openOutputStream(destUri, "rwt")?.use { out ->
                                         FileInputStream(tempVideoFile).use { input ->
                                             input.copyTo(out)
                                         }
                                     }
                                     tempVideoFile.delete()
-                                    onImageCaptured()
+
+                                    // 2. Явно сообщаем SimpleX, что файл является видео, а не фото
+                                    val resultIntent = android.content.Intent().apply {
+                                        setDataAndType(destUri, "video/mp4")
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    (context as? Activity)?.setResult(Activity.RESULT_OK, resultIntent)
+                                    (context as? Activity)?.finish()
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
@@ -229,6 +242,14 @@ class CameraActivity : ComponentActivity() {
         }
 
         fun stopVideoRecording() {
+            val duration = System.currentTimeMillis() - recordingStartTime
+            if (duration < 1000) {
+                // Если запись длилась меньше секунды — отменяем сохранение,
+                // чтобы не писать битый MP4 в файл
+                activeRecording?.stop()
+                activeRecording = null
+                return
+            }
             activeRecording?.stop()
             activeRecording = null
         }
@@ -608,19 +629,23 @@ class CameraActivity : ComponentActivity() {
                             .pointerInput(currentImageCapture, currentVideoCapture) {
                                 detectTapGestures(
                                     onPress = {
-                                        var isLongPress = false
+                                        var hasStartedVideo = false
                                         val timerJob = coroutineScope.launch {
                                             delay(350)
-                                            isLongPress = true
                                             currentVideoCapture?.let { vc ->
+                                                hasStartedVideo = true
                                                 startVideoRecording(vc)
                                             }
                                         }
-                                        tryAwaitRelease()
+
+                                        val released = tryAwaitRelease()
                                         timerJob.cancel()
-                                        if (isLongPress) {
+
+                                        if (hasStartedVideo) {
+                                            // Останавливаем видео и при чистом отпускании, и при срыве касания
                                             stopVideoRecording()
-                                        } else {
+                                        } else if (released) {
+                                            // Делаем фото ТОЛЬКО если был чистый тап без удержания и без срыва
                                             currentImageCapture?.let { capture ->
                                                 takePhoto(capture, onImageCaptured, onError)
                                             }
