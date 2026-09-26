@@ -23,11 +23,7 @@ actual fun AttachmentSelection(
 ) {
   val cameraLauncher = rememberCameraLauncher { uri: Uri? ->
     if (uri != null) {
-      val bitmap: ImageBitmap? = getBitmapFromUri(uri.toURI())
-      if (bitmap != null) {
-        val imagePreview = resizeImageToStrSize(bitmap, maxDataSize = 14000)
-        composeState.value = composeState.value.copy(preview = ComposePreview.MediaPreview(listOf(imagePreview), listOf(UploadContent.SimpleImage(uri.toURI()))))
-      }
+      processPickedMedia(listOf(uri.toURI()), null)
     }
   }
   val cameraPermissionLauncher = rememberPermissionLauncher { isGranted: Boolean ->
