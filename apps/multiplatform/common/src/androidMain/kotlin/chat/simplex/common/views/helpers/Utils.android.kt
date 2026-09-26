@@ -261,7 +261,7 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
   val contentResolver = androidAppContext.contentResolver
   val mimeType = contentResolver.getType(androidUri) ?: ""
 
-  // 1. Если это видео (или файл .mp4) — достаем первый кадр через MediaMetadataRetriever
+  // 1. Если это видео (.mp4) — достаем первый кадр для превью в поле ввода
   if (mimeType.startsWith("video/") || androidUri.toString().endsWith(".mp4", ignoreCase = true)) {
     return try {
       val retriever = android.media.MediaMetadataRetriever()
@@ -281,7 +281,7 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
       val source = ImageDecoder.createSource(contentResolver, androidUri)
       ImageDecoder.decodeBitmap(source)
     } catch (e: Exception) {
-      // Страховка: если у видео не было MIME-типа, пробуем достать кадр перед показом ошибки
+      // Страховка: если у видео не определился MIME-тип
       try {
         val retriever = android.media.MediaMetadataRetriever()
         retriever.setDataSource(androidAppContext, androidUri)
