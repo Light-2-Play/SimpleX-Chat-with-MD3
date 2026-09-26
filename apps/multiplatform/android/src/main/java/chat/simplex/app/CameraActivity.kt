@@ -739,27 +739,45 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
         }
     }
 
-    private fun takePhoto(
+   private fun takePhoto(
         imageCapture: ImageCapture,
         onSuccess: () -> Unit,
         onError: (ImageCaptureException) -> Unit
     ) {
-        val uri = outputUri ?: return
-        val outputStream = contentResolver.openOutputStream(uri) ?: return
+        val uri = outputUri ?: run {
+            onError(ImageCaptureException(ImageCapture.ERROR_FILE_IO, "Target URI is null", null))
+            return
+        }
+
+        val outputStream = try {
+            contentResolver.openOutputStream(uri)
+        } catch (e: Exception) {
+            onError(ImageCaptureException(ImageCapture.ERROR_FILE_IO, "Cannot open output stream", e))
+            return
+        } ?: run {
+            onError(ImageCaptureException(ImageCapture.ERROR_FILE_IO, "Output stream is null", null))
+            return
+        }
+
         val outputOptions = ImageCapture.OutputFileOptions.Builder(outputStream).build()
 
         imageCapture.takePicture(
             outputOptions,
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
-                override fun onError(exc: ImageCaptureException) {
-                    onError(exc)
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    val resultIntent = Intent().apply {
+                        data = uri
+                        putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    setResult(Activity.RESULT_OK, resultIntent)
+                    runOnUiThread { onSuccess() }
                 }
 
-                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    runOnUiThread { onSuccess() }
+                override fun onError(exc: ImageCaptureException) {
+                    runOnUiThread { onError(exc) }
                 }
             }
         )
     }
-}
