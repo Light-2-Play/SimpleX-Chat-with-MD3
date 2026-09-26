@@ -78,6 +78,9 @@ import java.io.File
 import java.io.FileInputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import android.util.Rational
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.ViewPort
 
 class CameraActivity : ComponentActivity() {
 
@@ -165,10 +168,19 @@ class CameraActivity : ComponentActivity() {
         var activeRecording by remember { mutableStateOf<Recording?>(null) }
         var isRecordingVideo by remember { mutableStateOf(false) }
 
-        var minZoomRatio by remember { mutableStateOf(1.0f) }
+       var minZoomRatio by remember { mutableStateOf(1.0f) }
         var maxZoomRatio by remember { mutableStateOf(1.0f) }
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
+        // Сохраняем ссылку на View камеры
+        var previewViewInstance by remember { mutableStateOf<PreviewView?>(null) }
+
+        // Эффект, который перезапускает камеру при смене любого параметра (камера, зум, соотношение 4:3 / 1:1)
+        LaunchedEffect(lensFacing, isNightSightActive, selectedAspectRatio, previewViewInstance) {
+            previewViewInstance?.let { pv ->
+                bindCamera(pv)
+            }
+        }
         // Токены темы Monet
         val monetAccent = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -461,13 +473,20 @@ class CameraActivity : ComponentActivity() {
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            scaleType = PreviewView.ScaleType.FIT_CENTER
                         }.also {
+                            // Сохраняем ссылку, чтобы LaunchedEffect сам вызвал bindCamera
                             cachedPreviewView = it
-                            bindCamera(it)
                         }
                     },
-                    update = {}
+                    update = { previewView ->
+                        // Обновляем scaleType при переключении соотношения
+                        previewView.scaleType = if (selectedAspectRatio == "1:1") {
+                            PreviewView.ScaleType.FIT_CENTER
+                        } else {
+                            PreviewView.ScaleType.FILL_CENTER
+                        }
+                    }
                 )
 
                 // ВОТ СЮДА ВСТАВЛЯЕТСЯ ТАЙМЕР:
@@ -642,34 +661,36 @@ class CameraActivity : ComponentActivity() {
                                 if (isRecordingVideo) RoundedCornerShape(8.dp) else CircleShape
                             )
                             .pointerInput(currentImageCapture, currentVideoCapture) {
-                                detectTapGestures(
-                                    onPress = {
-                                        var hasStartedVideo = false
-                                        val timerJob = coroutineScope.launch {
-                                            delay(350)
-                                            currentVideoCapture?.let { vc ->
-                                                hasStartedVideo = true
-                                                startVideoRecording(vc)
-                                            }
-                                        }
+    detectTapGestures(
+        onPress = {
+            val timerJob = coroutineScope.launch {
+                delay(350)
+                currentVideoCapture?.let { vc ->
+                    // Начинаем запись только если она еще не идет
+                    if (activeRecording == null) {
+                        startVideoRecording(vc)
+                    }
+                }
+            }
 
-                                        val released = tryAwaitRelease()
-                                        timerJob.cancel()
+            // Ждем отпускания пальца
+            val released = tryAwaitRelease()
+            // Отменяем таймер (если держали меньше 350мс — запись не начнется)
+            timerJob.cancel()
 
-                                        if (hasStartedVideo) {
-                                            // Останавливаем видео и при чистом отпускании, и при срыве касания
-                                            stopVideoRecording()
-                                        } else if (released) {
-                                            // Делаем фото ТОЛЬКО если был чистый тап без удержания и без срыва
-                                            currentImageCapture?.let { capture ->
-                                                takePhoto(capture, onImageCaptured, onError)
-                                            }
-                                        }
-                                    }
-                                )
-                            }
-                    )
-
+            // ПРОВЕРЯЕМ РЕАЛЬНОЕ СОСТОЯНИЕ ЗАПИСИ (activeRecording):
+            if (activeRecording != null || isRecordingVideo) {
+                // Если запись реально началась — останавливаем ее
+                stopVideoRecording()
+            } else if (released) {
+                // Фото делаем ТОЛЬКО если запись точно НЕ начиналась!
+                currentImageCapture?.let { capture ->
+                    takePhoto(capture, onImageCaptured, onError)
+                }
+            }
+        }
+    )
+}
                     // Переворот камеры
                     Box(
                         modifier = Modifier
