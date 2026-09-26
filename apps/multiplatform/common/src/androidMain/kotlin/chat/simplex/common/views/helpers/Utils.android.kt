@@ -257,15 +257,42 @@ actual fun getFileSize(uri: URI): Long? {
 }
 
 actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitmap? {
+  val androidUri = uri.toUri()
+  val contentResolver = androidAppContext.contentResolver
+  val mimeType = contentResolver.getType(androidUri) ?: ""
+
+  // 1. Если это видео — сразу достаем первый кадр через MediaMetadataRetriever
+  if (mimeType.startsWith("video/") || androidUri.toString().endsWith(".mp4", ignoreCase = true)) {
+    return try {
+      val retriever = android.media.MediaMetadataRetriever()
+      retriever.setDataSource(androidAppContext, androidUri)
+      val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+      retriever.release()
+      frame?.asImageBitmap()
+    } catch (e: Exception) {
+      Log.e(TAG, "Unable to extract video frame: ${e.stackTraceToString()}")
+      null
+    }
+  }
+
+  // 2. Стандартный пайплайн для фото
   return if (Build.VERSION.SDK_INT >= 28) {
     try {
-      val source = ImageDecoder.createSource(androidAppContext.contentResolver, uri.toUri())
+      val source = ImageDecoder.createSource(contentResolver, androidUri)
       ImageDecoder.decodeBitmap(source)
     } catch (e: Exception) {
-      Log.e(TAG, "Unable to decode the image: ${e.stackTraceToString()}")
-      if (withAlertOnException) showImageDecodingException()
-
-      null
+      // Страховка: если файл без mimeType оказался видео
+      try {
+        val retriever = android.media.MediaMetadataRetriever()
+        retriever.setDataSource(androidAppContext, androidUri)
+        val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        retriever.release()
+        frame
+      } catch (videoEx: Exception) {
+        Log.e(TAG, "Unable to decode the image: ${e.stackTraceToString()}")
+        if (withAlertOnException) showImageDecodingException()
+        null
+      }
     }
   } else {
     BitmapFactory.decodeFile(getAppFilePath(uri))
