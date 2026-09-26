@@ -492,7 +492,7 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             scaleType = PreviewView.ScaleType.FIT_CENTER
-            // Биндим только когда вьюшка готова и имеет размеры/дисплей:
+            // Передаем ссылку ТОЛЬКО когда вьюшка физически готова и прикреплена к экрану:
             post {
                 cachedPreviewView = this
             }
