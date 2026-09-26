@@ -4,8 +4,8 @@ package chat.simplex.app
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
-import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
 import android.net.Uri
 import android.os.Build
@@ -23,9 +23,15 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
-import androidx.camera.extensions.ExtensionMode
 import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -34,6 +40,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -58,7 +65,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileInputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -68,9 +78,9 @@ class CameraActivity : ComponentActivity() {
     private var outputUri: Uri? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.CAMERA] == true) {
             startCameraUI()
         } else {
             setResult(Activity.RESULT_CANCELED)
@@ -91,10 +101,16 @@ class CameraActivity : ComponentActivity() {
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+        val permissionsToRequest = mutableListOf(Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+
+        val hasCameraPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (hasCameraPermission) {
             startCameraUI()
         } else {
-            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
@@ -130,18 +146,23 @@ class CameraActivity : ComponentActivity() {
     ) {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
+        val coroutineScope = rememberCoroutineScope()
 
         var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
         var isNightSightActive by remember { mutableStateOf(false) }
+        var selectedAspectRatio by remember { mutableStateOf("4:3") } // "4:3" или "1:1"
 
         var currentCamera by remember { mutableStateOf<Camera?>(null) }
         var currentImageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+        var currentVideoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
+        var activeRecording by remember { mutableStateOf<Recording?>(null) }
+        var isRecordingVideo by remember { mutableStateOf(false) }
 
         var minZoomRatio by remember { mutableStateOf(1.0f) }
         var maxZoomRatio by remember { mutableStateOf(1.0f) }
         var currentZoomRatio by remember { mutableStateOf(1.0f) }
 
-        // Токены Monet
+        // Токены темы Monet
         val monetAccent = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 Color(ContextCompat.getColor(context, android.R.color.system_accent1_200))
@@ -166,6 +187,52 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
+        // Логика записи видео
+        fun startVideoRecording(videoCapture: VideoCapture<Recorder>) {
+            val tempVideoFile = File(context.cacheDir, "temp_simplex_video.mp4")
+            if (tempVideoFile.exists()) tempVideoFile.delete()
+
+            val outputOptions = FileOutputOptions.Builder(tempVideoFile).build()
+            var pending = videoCapture.output.prepareRecording(context, outputOptions)
+
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                pending = pending.withAudioEnabled()
+            }
+
+            activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
+                when (event) {
+                    is VideoRecordEvent.Start -> {
+                        isRecordingVideo = true
+                    }
+                    is VideoRecordEvent.Finalize -> {
+                        isRecordingVideo = false
+                        if (!event.hasError()) {
+                            outputUri?.let { destUri ->
+                                try {
+                                    context.contentResolver.openOutputStream(destUri)?.use { out ->
+                                        FileInputStream(tempVideoFile).use { input ->
+                                            input.copyTo(out)
+                                        }
+                                    }
+                                    tempVideoFile.delete()
+                                    onImageCaptured()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        } else {
+                            tempVideoFile.delete()
+                        }
+                    }
+                }
+            }
+        }
+
+        fun stopVideoRecording() {
+            activeRecording?.stop()
+            activeRecording = null
+        }
+
         fun bindCamera(previewView: PreviewView) {
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
@@ -174,15 +241,11 @@ class CameraActivity : ComponentActivity() {
                 val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context, cameraProvider)
 
                 extensionsManagerFuture.addListener({
-                    val extensionsManager = extensionsManagerFuture.get()
-
                     val baseSelector = CameraSelector.Builder()
                         .requireLensFacing(lensFacing)
                         .build()
 
-                    val finalSelector = baseSelector
-
-                    // 1. Превью видоискателя
+                    // 1. Превью (видоискатель)
                     val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
                     val camera2Preview = Camera2Interop.Extender(previewBuilder)
 
@@ -202,13 +265,12 @@ class CameraActivity : ComponentActivity() {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                    // 2. Захват фото
+                    // 2. Фотозахват
                     val captureBuilder = ImageCapture.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
 
                     val camera2Capture = Camera2Interop.Extender(captureBuilder)
-
                     camera2Capture.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
@@ -236,9 +298,22 @@ class CameraActivity : ComponentActivity() {
                     val imageCapture = captureBuilder.build()
                     currentImageCapture = imageCapture
 
+                    // 3. Видеозахват
+                    val recorder = Recorder.Builder()
+                        .setQualitySelector(QualitySelector.from(Quality.HD))
+                        .build()
+                    val videoCapture = VideoCapture.withOutput(recorder)
+                    currentVideoCapture = videoCapture
+
                     try {
                         cameraProvider.unbindAll()
-                        val camera = cameraProvider.bindToLifecycle(lifecycleOwner, finalSelector, preview, imageCapture)
+                        val camera = cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            baseSelector,
+                            preview,
+                            imageCapture,
+                            videoCapture
+                        )
                         currentCamera = camera
 
                         camera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
@@ -263,6 +338,7 @@ class CameraActivity : ComponentActivity() {
             }, ContextCompat.getMainExecutor(context))
         }
 
+        // Пресеты линз
         val lensPresets = remember(minZoomRatio, maxZoomRatio, lensFacing) {
             if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                 listOf(1.0f to "1×")
@@ -282,10 +358,8 @@ class CameraActivity : ComponentActivity() {
             }
         }
 
-        // --- Плавная анимация зума ---
-        val coroutineScope = rememberCoroutineScope()
+        // Аниматор зума
         val zoomAnim = remember { Animatable(1.0f) }
-
         val onSelectLens: (Float) -> Unit = { targetRatio ->
             currentZoomRatio = targetRatio
             coroutineScope.launch {
@@ -330,11 +404,11 @@ class CameraActivity : ComponentActivity() {
                 }
             }
 
-            // Видоискатель 4:3
+            // Видоискатель (динамически переключается между 4:3 и 1:1)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(3f / 4f)
+                    .aspectRatio(if (selectedAspectRatio == "1:1") 1f else 3f / 4f)
                     .clip(RoundedCornerShape(24.dp))
                     .background(Color.DarkGray)
                     .pointerInput(currentCamera, minZoomRatio, maxZoomRatio) {
@@ -363,6 +437,33 @@ class CameraActivity : ComponentActivity() {
                     },
                     update = {}
                 )
+
+                // Индикатор активной записи видео
+                if (isRecordingVideo) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 16.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color.Red, CircleShape)
+                        )
+                        BasicText(
+                            text = "REC",
+                            style = TextStyle(
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
             }
 
             // Нижняя панель управления
@@ -374,13 +475,36 @@ class CameraActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Ряд: [Объективы] + [Кнопка Луна справа]
+                // Ряд: [Выбор 4:3 / 1:1] — [Объективы] — [Кнопка Луна]
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Переключатель соотношения сторон слева
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .size(40.dp)
+                            .background(monetButtonBg, CircleShape)
+                            .clickable {
+                                selectedAspectRatio = if (selectedAspectRatio == "4:3") "1:1" else "4:3"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = selectedAspectRatio,
+                            style = TextStyle(
+                                color = monetAccentSoft,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                    }
+
+                    // Пресеты зума по центру
                     if (lensPresets.size > 1) {
                         Row(
                             modifier = Modifier
@@ -418,7 +542,7 @@ class CameraActivity : ComponentActivity() {
                         }
                     }
 
-                    // Кнопка ночного режима
+                    // Кнопка ночного режима справа
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -471,17 +595,38 @@ class CameraActivity : ComponentActivity() {
                 ) {
                     Spacer(modifier = Modifier.size(48.dp))
 
-                    // Затвор
+                    // Затвор (Тап = Фото, Удержание = Видео)
                     Box(
                         modifier = Modifier
                             .size(76.dp)
-                            .border(4.dp, monetAccent, CircleShape)
-                            .padding(6.dp)
-                            .background(monetAccent, CircleShape)
-                            .clickable {
-                                currentImageCapture?.let { capture ->
-                                    takePhoto(capture, onImageCaptured, onError)
-                                }
+                            .border(4.dp, if (isRecordingVideo) Color.Red else monetAccent, CircleShape)
+                            .padding(if (isRecordingVideo) 14.dp else 6.dp)
+                            .background(
+                                if (isRecordingVideo) Color.Red else monetAccent,
+                                if (isRecordingVideo) RoundedCornerShape(8.dp) else CircleShape
+                            )
+                            .pointerInput(currentImageCapture, currentVideoCapture) {
+                                detectTapGestures(
+                                    onPress = {
+                                        var isLongPress = false
+                                        val timerJob = coroutineScope.launch {
+                                            delay(350)
+                                            isLongPress = true
+                                            currentVideoCapture?.let { vc ->
+                                                startVideoRecording(vc)
+                                            }
+                                        }
+                                        tryAwaitRelease()
+                                        timerJob.cancel()
+                                        if (isLongPress) {
+                                            stopVideoRecording()
+                                        } else {
+                                            currentImageCapture?.let { capture ->
+                                                takePhoto(capture, onImageCaptured, onError)
+                                            }
+                                        }
+                                    }
+                                )
                             }
                     )
 
