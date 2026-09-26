@@ -175,12 +175,6 @@ class CameraActivity : ComponentActivity() {
         // Сохраняем ссылку на View камеры
         var previewViewInstance by remember { mutableStateOf<PreviewView?>(null) }
 
-        // Эффект, который перезапускает камеру при смене любого параметра (камера, зум, соотношение 4:3 / 1:1)
-        LaunchedEffect(lensFacing, isNightSightActive, selectedAspectRatio, previewViewInstance) {
-            previewViewInstance?.let { pv ->
-                bindCamera(pv)
-            }
-        }
         // Токены темы Monet
         val monetAccent = remember(context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -382,6 +376,13 @@ class CameraActivity : ComponentActivity() {
             }, ContextCompat.getMainExecutor(context))
         }
 
+// 2. И только ПОД НЕЙ вызывается LaunchedEffect:
+        LaunchedEffect(lensFacing, isNightSightActive, selectedAspectRatio, cachedPreviewView) {
+            cachedPreviewView?.let { pv ->
+                bindCamera(pv)
+            }
+        }
+        
         // Пресеты линз
         val lensPresets = remember(minZoomRatio, maxZoomRatio, lensFacing) {
             if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
@@ -691,6 +692,7 @@ class CameraActivity : ComponentActivity() {
         }
     )
 }
+)                            
                     // Переворот камеры
                     Box(
                         modifier = Modifier
