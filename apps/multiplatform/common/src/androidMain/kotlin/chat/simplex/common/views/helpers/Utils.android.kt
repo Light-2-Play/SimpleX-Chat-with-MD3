@@ -261,7 +261,7 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
   val contentResolver = androidAppContext.contentResolver
   val mimeType = contentResolver.getType(androidUri) ?: ""
 
-  // 1. Если это видео (.mp4) — достаем первый кадр для превью в поле ввода
+  // 1. Если это видео (.mp4) — сразу извлекаем первый кадр
   if (mimeType.startsWith("video/") || androidUri.toString().endsWith(".mp4", ignoreCase = true)) {
     return try {
       val retriever = android.media.MediaMetadataRetriever()
@@ -275,19 +275,19 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
     }
   }
 
-  // 2. Стандартный пайплайн для картинок
-  return if (Build.VERSION.SDK_INT >= 28) {
+  // 2. Пайплайн для изображений (все ветки строго возвращают android.graphics.Bitmap?)
+  val bitmap: android.graphics.Bitmap? = if (Build.VERSION.SDK_INT >= 28) {
     try {
       val source = ImageDecoder.createSource(contentResolver, androidUri)
       ImageDecoder.decodeBitmap(source)
     } catch (e: Exception) {
-      // Страховка: если у видео не определился MIME-тип
+      // Страховка: если видеофайл пришел без MIME-типа, достаем кадр как Bitmap
       try {
         val retriever = android.media.MediaMetadataRetriever()
         retriever.setDataSource(androidAppContext, androidUri)
         val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
         retriever.release()
-        frame?.asImageBitmap()
+        frame
       } catch (videoEx: Exception) {
         Log.e(TAG, "Unable to decode the image: ${e.stackTraceToString()}")
         if (withAlertOnException) showImageDecodingException()
@@ -296,7 +296,9 @@ actual fun getBitmapFromUri(uri: URI, withAlertOnException: Boolean): ImageBitma
     }
   } else {
     BitmapFactory.decodeFile(getAppFilePath(uri))
-  }?.asImageBitmap()
+  }
+
+  return bitmap?.asImageBitmap()
 }
 
 actual fun getBitmapFromByteArray(data: ByteArray, withAlertOnException: Boolean): ImageBitmap? {
