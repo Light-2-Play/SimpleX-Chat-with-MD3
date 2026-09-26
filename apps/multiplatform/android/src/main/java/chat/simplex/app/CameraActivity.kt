@@ -5,16 +5,20 @@ package chat.simplex.app
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.camera2.CaptureRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
+import android.util.Range
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.AspectRatio
@@ -23,8 +27,10 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.extensions.ExtensionMode
 import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
@@ -33,7 +39,6 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
-import androidx.camera.video.FallbackStrategy
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -66,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -193,7 +199,7 @@ class CameraActivity : ComponentActivity() {
         var recordingTimeSeconds by remember { mutableStateOf(0) }
 
         fun startVideoRecording(videoCapture: VideoCapture<Recorder>) {
-            // Создаем честный отдельный .mp4 файл в кэше
+            // 1. Создание файла для видео в кэше
             val videoFile = File(context.cacheDir, "VID_${System.currentTimeMillis()}.mp4")
             val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
@@ -202,6 +208,7 @@ class CameraActivity : ComponentActivity() {
                 pending = pending.withAudioEnabled()
             }
 
+            // 2. Запуск записи и обработка событий
             activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
@@ -215,21 +222,21 @@ class CameraActivity : ComponentActivity() {
                             stopVideoRecording()
                         }
                     }
+                    
+                    // ==========================================
+                    // ВОТ ЗДЕСЬ ДОЛЖНО БЫТЬ VideoRecordEvent.Finalize:
+                    // ==========================================
                     is VideoRecordEvent.Finalize -> {
                         isRecordingVideo = false
                         recordingTimeSeconds = 0
                         if (!event.hasError()) {
+                            val authority = "${context.packageName}.provider"
                             val videoUri = try {
-                                androidx.core.content.FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    videoFile
-                                )
+                                FileProvider.getUriForFile(context, authority, videoFile)
                             } catch (e: Exception) {
                                 Uri.fromFile(videoFile)
                             }
 
-                            // Возвращаем результат именно как VIDEO
                             val resultIntent = android.content.Intent().apply {
                                 data = videoUri
                                 putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
