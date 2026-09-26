@@ -265,114 +265,131 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(context, cameraProvider)
 
-                extensionsManagerFuture.addListener({
-                    val baseSelector = CameraSelector.Builder()
-                        .requireLensFacing(lensFacing)
-                        .build()
+                val baseSelector = CameraSelector.Builder()
+                    .requireLensFacing(lensFacing)
+                    .build()
 
-                    // 1. Превью (видоискатель)
-                    val previewBuilder = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                    val camera2Preview = Camera2Interop.Extender(previewBuilder)
+                val fpsRange = android.util.Range(30, 30)
 
+                // 1. Превью (видоискатель)
+                val previewBuilder = Preview.Builder()
+                val camera2Preview = Camera2Interop.Extender(previewBuilder)
+                camera2Preview.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+
+                if (lensFacing == CameraSelector.LENS_FACING_BACK) {
                     camera2Preview.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
+                }
 
-                    if (isNightSightActive) {
-                        camera2Preview.setCaptureRequestOption(
-                            CaptureRequest.NOISE_REDUCTION_MODE,
-                            CaptureRequest.NOISE_REDUCTION_MODE_FAST
-                        )
-                    }
+                if (isNightSightActive) {
+                    camera2Preview.setCaptureRequestOption(
+                        CaptureRequest.NOISE_REDUCTION_MODE,
+                        CaptureRequest.NOISE_REDUCTION_MODE_FAST
+                    )
+                }
 
-                    val preview = previewBuilder.build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
+                val preview = previewBuilder.build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
 
-                    // 2. Фотозахват
-                    val captureBuilder = ImageCapture.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                // 2. Фотозахват
+                val captureBuilder = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
 
-                    val camera2Capture = Camera2Interop.Extender(captureBuilder)
+                val camera2Capture = Camera2Interop.Extender(captureBuilder)
+                camera2Capture.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+
+                if (lensFacing == CameraSelector.LENS_FACING_BACK) {
                     camera2Capture.setCaptureRequestOption(
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                     )
+                }
 
-                    if (isNightSightActive) {
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.NOISE_REDUCTION_MODE,
-                            CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
-                        )
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.HOT_PIXEL_MODE,
-                            CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY
-                        )
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.EDGE_MODE,
-                            CaptureRequest.EDGE_MODE_HIGH_QUALITY
-                        )
-                        camera2Capture.setCaptureRequestOption(
-                            CaptureRequest.TONEMAP_MODE,
-                            CaptureRequest.TONEMAP_MODE_HIGH_QUALITY
-                        )
-                    }
-
-                    val imageCapture = captureBuilder.build()
-                    currentImageCapture = imageCapture
-
-                    // Фиксация 30 FPS
-                    val fpsRange = android.util.Range(30, 30)
-                    camera2Preview.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
-                    camera2Capture.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
-
-                    // 3. Видеозахват (720p HD с отказоустойчивостью)
-                    val qualitySelector = QualitySelector.from(
-                        Quality.HD,
-                        FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)
+                if (isNightSightActive) {
+                    camera2Capture.setCaptureRequestOption(
+                        CaptureRequest.NOISE_REDUCTION_MODE,
+                        CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
                     )
-                    val recorder = Recorder.Builder()
-                        .setQualitySelector(qualitySelector)
-                        .setExecutor(ContextCompat.getMainExecutor(context))
-                        .build()
+                    camera2Capture.setCaptureRequestOption(
+                        CaptureRequest.HOT_PIXEL_MODE,
+                        CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY
+                    )
+                    camera2Capture.setCaptureRequestOption(
+                        CaptureRequest.EDGE_MODE,
+                        CaptureRequest.EDGE_MODE_HIGH_QUALITY
+                    )
+                    camera2Capture.setCaptureRequestOption(
+                        CaptureRequest.TONEMAP_MODE,
+                        CaptureRequest.TONEMAP_MODE_HIGH_QUALITY
+                    )
+                }
 
-                    val videoCapture = VideoCapture.withOutput(recorder)
-                    currentVideoCapture = videoCapture
+                val imageCapture = captureBuilder.build()
+                currentImageCapture = imageCapture
 
-                    try {
-                        cameraProvider.unbindAll()
-                        val camera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            baseSelector,
-                            preview,
-                            imageCapture,
-                            videoCapture
-                        )
-                        currentCamera = camera
+                // 3. Видеозахват (720p HD)
+                val qualitySelector = QualitySelector.from(
+                    Quality.HD,
+                    FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)
+                )
+                val recorder = Recorder.Builder()
+                    .setQualitySelector(qualitySelector)
+                    .setExecutor(ContextCompat.getMainExecutor(context))
+                    .build()
 
-                        camera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
-                            minZoomRatio = state.minZoomRatio
-                            maxZoomRatio = state.maxZoomRatio
-                        }
+                val videoCapture = VideoCapture.withOutput(recorder)
+                currentVideoCapture = videoCapture
 
-                        val exposureState = camera.cameraInfo.exposureState
-                        if (exposureState.isExposureCompensationSupported) {
-                            val range = exposureState.exposureCompensationRange
-                            val targetIndex = if (isNightSightActive) {
-                                (range.upper * 0.4f).toInt().coerceIn(range.lower, range.upper)
-                            } else {
-                                0
-                            }
-                            camera.cameraControl.setExposureCompensationIndex(targetIndex)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                // 4. Единый ViewPort: кропит видоискатель, фото и видео под 4:3 или 1:1
+                val targetRational = if (selectedAspectRatio == "1:1") {
+                    android.util.Rational(1, 1)
+                } else {
+                    android.util.Rational(3, 4) // В портретной ориентации 4:3 соответствует пропорции 3:4
+                }
+
+                val rotation = previewView.display?.rotation ?: android.view.Surface.ROTATION_0
+                val viewPort = androidx.camera.core.ViewPort.Builder(targetRational, rotation)
+                    .setScaleType(androidx.camera.core.ViewPort.FILL_CENTER)
+                    .build()
+
+                val useCaseGroup = androidx.camera.core.UseCaseGroup.Builder()
+                    .setViewPort(viewPort)
+                    .addUseCase(preview)
+                    .addUseCase(imageCapture)
+                    .addUseCase(videoCapture)
+                    .build()
+
+                try {
+                    cameraProvider.unbindAll()
+                    val camera = cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        baseSelector,
+                        useCaseGroup
+                    )
+                    currentCamera = camera
+
+                    camera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
+                        minZoomRatio = state.minZoomRatio
+                        maxZoomRatio = state.maxZoomRatio
                     }
-                }, ContextCompat.getMainExecutor(context))
+
+                    val exposureState = camera.cameraInfo.exposureState
+                    if (exposureState.isExposureCompensationSupported) {
+                        val range = exposureState.exposureCompensationRange
+                        val targetIndex = if (isNightSightActive) {
+                            (range.upper * 0.4f).toInt().coerceIn(range.lower, range.upper)
+                        } else {
+                            0
+                        }
+                        camera.cameraControl.setExposureCompensationIndex(targetIndex)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CameraActivity", "Error binding camera with ViewPort", e)
+                }
             }, ContextCompat.getMainExecutor(context))
         }
 
