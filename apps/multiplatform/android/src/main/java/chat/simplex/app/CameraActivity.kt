@@ -492,18 +492,17 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             scaleType = PreviewView.ScaleType.FIT_CENTER
-            // Передаем ссылку ТОЛЬКО когда вьюшка физически готова и прикреплена к экрану:
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+
+            // Гарантируем, что биндинг произойдет только после полной готовности View
             post {
                 cachedPreviewView = this
             }
         }
     },
     update = { previewView ->
-        previewView.scaleType = if (selectedAspectRatio == "1:1") {
-            PreviewView.ScaleType.FIT_CENTER
-        } else {
-            PreviewView.ScaleType.FILL_CENTER
-        }
+        // FIT_CENTER сохраняет честные пропорции без паразитного кропа для 4:3 и 1:1
+        previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
     }
 )
 
