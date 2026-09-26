@@ -198,8 +198,14 @@ class CameraActivity : ComponentActivity() {
       // Переменные для таймера записи
         var recordingTimeSeconds by remember { mutableStateOf(0) }
 
+       // 1. Сначала объявляем остановку:
+        fun stopVideoRecording() {
+            activeRecording?.stop()
+            activeRecording = null
+        }
+
+        // 2. Теперь объявляем старт (компилятор уже видит stopVideoRecording):
         fun startVideoRecording(videoCapture: VideoCapture<Recorder>) {
-            // 1. Создание файла для видео в кэше
             val videoFile = File(context.cacheDir, "VID_${System.currentTimeMillis()}.mp4")
             val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
@@ -208,7 +214,6 @@ class CameraActivity : ComponentActivity() {
                 pending = pending.withAudioEnabled()
             }
 
-            // 2. Запуск записи и обработка событий
             activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
@@ -217,15 +222,11 @@ class CameraActivity : ComponentActivity() {
                     is VideoRecordEvent.Status -> {
                         val durationSec = (event.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
                         recordingTimeSeconds = durationSec
-                        // Лимит 2 минуты (120 секунд)
+                        // Теперь компилятор знает, что вызывать:
                         if (durationSec >= 120) {
                             stopVideoRecording()
                         }
                     }
-                    
-                    // ==========================================
-                    // ВОТ ЗДЕСЬ ДОЛЖНО БЫТЬ VideoRecordEvent.Finalize:
-                    // ==========================================
                     is VideoRecordEvent.Finalize -> {
                         isRecordingVideo = false
                         recordingTimeSeconds = 0
@@ -237,11 +238,11 @@ class CameraActivity : ComponentActivity() {
                                 Uri.fromFile(videoFile)
                             }
 
-                            val resultIntent = android.content.Intent().apply {
+                            val resultIntent = Intent().apply {
                                 data = videoUri
                                 putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
                                 putExtra("IS_VIDEO", true)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             (context as? Activity)?.setResult(Activity.RESULT_OK, resultIntent)
                             (context as? Activity)?.finish()
@@ -251,11 +252,6 @@ class CameraActivity : ComponentActivity() {
                     }
                 }
             }
-        }
-
-        fun stopVideoRecording() {
-            activeRecording?.stop()
-            activeRecording = null
         }
 
         fun bindCamera(previewView: PreviewView) {
