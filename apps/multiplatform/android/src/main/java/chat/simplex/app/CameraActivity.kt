@@ -351,7 +351,7 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                     android.util.Rational(3, 4) // В портретной ориентации 4:3 соответствует пропорции 3:4
                 }
 
-                val rotation = previewView.display?.rotation ?: android.view.Surface.ROTATION_0
+               val rotation = previewView.display?.rotation ?: (context as? Activity)?.windowManager?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
                 val viewPort = androidx.camera.core.ViewPort.Builder(targetRational, rotation)
                     .setScaleType(androidx.camera.core.ViewPort.FILL_CENTER)
                     .build()
@@ -484,28 +484,28 @@ var cachedPreviewView by remember { mutableStateOf<PreviewView?>(null) }
                     }
             ) {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { ctx ->
-                        PreviewView(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            scaleType = PreviewView.ScaleType.FIT_CENTER
-                        }.also {
-                            // Сохраняем ссылку, чтобы LaunchedEffect сам вызвал bindCamera
-                            cachedPreviewView = it
-                        }
-                    },
-                    update = { previewView ->
-                        // Обновляем scaleType при переключении соотношения
-                        previewView.scaleType = if (selectedAspectRatio == "1:1") {
-                            PreviewView.ScaleType.FIT_CENTER
-                        } else {
-                            PreviewView.ScaleType.FILL_CENTER
-                        }
-                    }
-                )
+    modifier = Modifier.fillMaxSize(),
+    factory = { ctx ->
+        PreviewView(ctx).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = PreviewView.ScaleType.FIT_CENTER
+            // Биндим только когда вьюшка готова и имеет размеры/дисплей:
+            post {
+                cachedPreviewView = this
+            }
+        }
+    },
+    update = { previewView ->
+        previewView.scaleType = if (selectedAspectRatio == "1:1") {
+            PreviewView.ScaleType.FIT_CENTER
+        } else {
+            PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+)
 
                 // ВОТ СЮДА ВСТАВЛЯЕТСЯ ТАЙМЕР:
                 if (isRecordingVideo) {
