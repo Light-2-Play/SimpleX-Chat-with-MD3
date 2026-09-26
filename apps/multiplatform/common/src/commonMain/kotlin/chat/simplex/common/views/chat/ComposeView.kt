@@ -345,8 +345,13 @@ suspend fun MutableState<ComposeState>.processPickedMedia(uris: List<URI>, text:
   val imagesPreview = ArrayList<String>()
   uris.forEach { uri ->
     var bitmap: ImageBitmap?
+
+    // 1. Проверяем, является ли файл видеозаписью (.mp4 или содержит VID_)
+    val isVideo = uri.toString().contains(".mp4", ignoreCase = true) || uri.toString().contains("VID_", ignoreCase = true)
+
     val uploadContent: UploadContent? = when {
-      isImage(uri) -> {
+      // 2. Идем в ветку фото ТОЛЬКО если это не видео:
+      !isVideo && isImage(uri) -> {
         // Image
         val drawable = getDrawableFromUri(uri)
         // Do not show alert in case it's already shown from the function above
@@ -371,7 +376,7 @@ suspend fun MutableState<ComposeState>.processPickedMedia(uris: List<URI>, text:
         }
       }
       else -> {
-        // Video
+        // Video (теперь записанные ролики идут строго сюда!)
         val res = getBitmapFromVideo(uri, withAlertOnException = true)
         bitmap = res.preview
         val durationMs = res.duration
@@ -385,11 +390,6 @@ suspend fun MutableState<ComposeState>.processPickedMedia(uris: List<URI>, text:
       content.add(uploadContent)
       imagesPreview.add(resizeImageToStrSize(bitmap, maxDataSize = 14000))
     } else if (uploadContent is UploadContent.Video && !AlertManager.shared.hasAlertsShown()) {
-      // A corrupted/undecodable video can yield a null preview frame without throwing, so
-      // getBitmapFromVideo shows no alert. Skip it (other picked media still send) and tell
-      // the user instead of dropping it silently. hasAlertsShown guards against stacking the
-      // alert across multiple bad items and against duplicating the one already shown on the
-      // exception path. Image decode failures are already surfaced by getBitmapFromUri above.
       showVideoDecodingException()
     }
   }
@@ -397,7 +397,6 @@ suspend fun MutableState<ComposeState>.processPickedMedia(uris: List<URI>, text:
     value = value.copy(message = if (text != null) ComposeMessage(text) else value.message, preview = ComposePreview.MediaPreview(imagesPreview, content))
   }
 }
-
 // Spec: spec/client/compose.md#ComposeView
 @Composable
 fun ComposeView(
