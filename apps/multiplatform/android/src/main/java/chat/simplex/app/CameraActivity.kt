@@ -128,9 +128,10 @@ class CameraActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        cameraExecutor.shutdown()
-    }
+    super.onDestroy()
+    activeRecording?.stop()
+    cameraExecutor.shutdown()
+}
 
     private fun startCameraUI() {
         setContent {
